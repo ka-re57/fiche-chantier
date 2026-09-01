@@ -114,8 +114,17 @@ après chaque modification du fichier principal.
    section 2, avec les trois pièges Make rencontrés en les montant — filtre OU/ET, module filtré qui
    arrête sa branche, `client` chaîne ou objet selon le type d'envoi.
 2. **L'appli n'a jamais tourné sur un chantier réel** depuis la v1.1. Elle est passée à la v2.7
-   sans un seul essai terrain. Avant d'ajouter quoi que ce soit, la faire tourner en vrai.
-3. Le fichier fait 280 Ko. S'il devient gênant, le découper en huit morceaux de 30 à 40 Ko :
+   sans un seul essai terrain. La chaîne technique, elle, est validée depuis la tablette de Rémi le
+   1er septembre 2026 : liste des chantiers chargée, envoi accepté. Avant d'ajouter quoi que ce soit,
+   la faire tourner en vrai chez un client.
+3. **Le bouton « Tester l'envoi » ne prouve que la moitié.** Il envoie `test:true`, que le scénario
+   de réception écarte aussitôt par filtre — volontairement, pour ne pas créer un dossier Drive à
+   chaque essai. Du coup il vérifie que Make écoute, mais **pas que la clé partagée est bonne** : une
+   clé fausse donne exactement le même écran. Et son seul retour est un toast de deux secondes, que
+   Rémi n'a pas vu sur la tablette. À revoir : un aller-retour qui valide vraiment la clé, et un
+   message qui reste affiché. En attendant, le test qui fait foi est « Rafraîchir la liste des
+   chantiers » : il passe par l'autre scénario, qui contrôle la clé pour de bon.
+4. Le fichier fait 280 Ko. S'il devient gênant, le découper en huit morceaux de 30 à 40 Ko :
    coquille HTML+CSS, puis le JS par sections, le démarrage en dernier.
 
 ## Ton interlocuteur
