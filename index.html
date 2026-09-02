@@ -20,6 +20,7 @@
   --ok:#146B3A; --okf:#E0F2E7;
   --att:#9A5B00; --attf:#FCEEDA;
   --mal:#A31D14; --malf:#FAE4E1;
+  --presse:#D6E3EF; --pressep:#08284A;
   --ui:'Barlow Semi Condensed','Arial Narrow',Arial,sans-serif;
   --corps:'Barlow',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
   --num:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
@@ -34,6 +35,7 @@
     --ok:#5FCB8D; --okf:#0D2C1D;
     --att:#E9AC52; --attf:#33230B;
     --mal:#F27C6E; --malf:#371310;
+    --presse:#26394C; --pressep:#B4D6EF;
   }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -215,6 +217,29 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .rang2{display:flex;gap:6px}
 :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ==== RETOUR AU DOIGT ====
+   Sur tablette, sans changement visible a l'appui on ne sait pas si le geste a
+   porte : on rappuie, et l'action part deux fois. Le highlight natif d'Android
+   est desactive plus haut (rectangle qui deborde des coins arrondis), donc on
+   le refait proprement ici. Le fond change instantanement, il revient en
+   douceur : c'est l'appui qu'on veut voir, pas le relachement. */
+.btn,.puce,.et,.ong,.chb,.crb,.crzb,.crsym,.bloc>summary{
+  transition:background-color .13s ease,border-color .13s ease}
+.btn:active,.puce:active,.et:active,.ong:active,.chb:active,
+.crb:active,.crzb:active,.crsym:active,.bloc>summary:active{
+  background:var(--presse);border-color:var(--texte3);transform:translateY(1px)}
+/* Sur les boutons deja colores, assombrir ne se voit pas en plein soleil :
+   on ajoute un lisere interieur de la couleur du texte, visible dans les deux themes. */
+.btn.p:active,.puce.on:active,.crb.on:active,.ong[aria-selected="true"]:active{
+  background:var(--pressep);border-color:var(--pressep);color:var(--surmarque);
+  box-shadow:inset 0 0 0 2px var(--surmarque)}
+.btn.d:active{background:var(--malf);border-color:var(--mal);color:var(--mal)}
+/* Ceux-la sont sur fond fonce ou sur une photo : les eclaircir, pas les blanchir. */
+.icb:active{background:rgba(255,255,255,.36)}
+.ph button:active{background:rgba(0,0,0,.88);transform:scale(.88)}
+.crc:active{transform:scale(.88)}
+.crtitre:active{opacity:.55}
 </style>
 </head>
 <body>
@@ -238,7 +263,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "2.7";
+var VERSION = "2.8";
+/* Android n'applique :active que si la page ecoute le tactile quelque part.
+   Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
+try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
 
 var LOGO_KARE = "data:image/png;base64,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";
 
