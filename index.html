@@ -263,7 +263,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "3.1";
+var VERSION = "3.3";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -3569,6 +3569,74 @@ function decalerElement(E, dx, dy){
   if(E.x1!==undefined){ E.x1=r3(E.x1+dx); E.x2=r3(E.x2+dx); E.y1=r3(E.y1+dy); E.y2=r3(E.y2+dy); return; }
   if(E.x!==undefined){ E.x=r3(E.x+dx); E.y=r3(E.y+dy); }
 }
+/* Rotation d'un quart de tour autour d'un centre. Repere ecran (y vers le bas) :
+   un quart de tour horaire envoie (dx,dy) sur (-dy,dx). Sert a redresser une piece
+   posee dans le mauvais sens, avec tout ce qui est dessus. */
+function tournerPoint(px, py, cx, cy, horaire){
+  var dx=px-cx, dy=py-cy;
+  return horaire ? {x:r3(cx-dy), y:r3(cy+dx)} : {x:r3(cx+dy), y:r3(cy-dx)};
+}
+function tournerElement(E, cx, cy, horaire){
+  var q, p;
+  if(E.t==="piece"){
+    var ccx=E.x+E.w/2, ccy=E.y+E.h/2;
+    var nc=tournerPoint(ccx, ccy, cx, cy, horaire);
+    var nw=E.h, nh=E.w;
+    if(E.poly) for(q=0;q<E.poly.length;q+=2){
+      p=tournerPoint(E.poly[q], E.poly[q+1], cx, cy, horaire);
+      E.poly[q]=p.x; E.poly[q+1]=p.y;
+    }
+    E.w=r3(nw); E.h=r3(nh);
+    E.x=r3(nc.x-nw/2); E.y=r3(nc.y-nh/2);
+    return;
+  }
+  if(E.p){
+    for(q=0;q<E.p.length;q+=2){
+      p=tournerPoint(E.p[q], E.p[q+1], cx, cy, horaire);
+      E.p[q]=p.x; E.p[q+1]=p.y;
+    }
+    return;
+  }
+  if(E.x1!==undefined){
+    p=tournerPoint(E.x1, E.y1, cx, cy, horaire); E.x1=p.x; E.y1=p.y;
+    p=tournerPoint(E.x2, E.y2, cx, cy, horaire); E.x2=p.x; E.y2=p.y;
+    return;
+  }
+  if(E.x!==undefined){
+    p=tournerPoint(E.x, E.y, cx, cy, horaire); E.x=p.x; E.y=p.y;
+    if(E.r!==undefined) E.r=((E.r||0) + (horaire?90:-90) + 360)%360;
+  }
+}
+/* Boite qui contient tout ce qui est dessine au niveau courant. Sert au cadrage :
+   les formats predefinis ne tombent jamais juste, alors qu'un plan doit simplement
+   remplir l'ecran. */
+function boiteDessin(C){
+  var niv=C.niv===undefined?1:C.niv;
+  var x1=null, y1=null, x2=null, y2=null, q;
+  function pt(x,y){
+    if(x===undefined||y===undefined||isNaN(x)||isNaN(y)) return;
+    if(x1===null||x<x1) x1=x;
+    if(y1===null||y<y1) y1=y;
+    if(x2===null||x>x2) x2=x;
+    if(y2===null||y>y2) y2=y;
+  }
+  C.el.forEach(function(E){
+    if(nivDe(E)!==niv) return;
+    if(E.t==="piece"){
+      pt(E.x, E.y); pt(E.x+E.w, E.y+E.h);
+      if(E.poly) for(q=0;q<E.poly.length;q+=2) pt(E.poly[q], E.poly[q+1]);
+      return;
+    }
+    if(E.p){ for(q=0;q<E.p.length;q+=2) pt(E.p[q], E.p[q+1]); return; }
+    if(E.x1!==undefined){ pt(E.x1,E.y1); pt(E.x2,E.y2); return; }
+    if(E.x!==undefined){
+      var m=(E.t==="sym") ? (E.e||0.075) : 0.02;
+      pt(E.x-m, E.y-m); pt(E.x+m, E.y+m);
+    }
+  });
+  if(x1===null) return null;
+  return {x1:x1, y1:y1, x2:x2, y2:y2};
+}
 function elementSous(C,x,y,seuil,interieurPiece){
   var best=null, bd=seuil===undefined?0.035:seuil;
   var niv=C.niv===undefined?1:C.niv, i;
@@ -4606,6 +4674,20 @@ function ouvrirCroquis(C, apresFermeture){
       bt("⟲", function(){ E.r=((E.r||0)-15+360)%360; sauver(); peindre(); });
       bt("⟳", function(){ E.r=((E.r||0)+15)%360; sauver(); peindre(); });
     }
+    if(E.t==="piece"){
+      /* Une piece posee dans le mauvais sens se redresse d'un quart de tour, avec
+         tout ce qui est dessus : portes, symboles, cotes, traits. */
+      function quart(horaire){
+        var cx=E.x+E.w/2, cy=E.y+E.h/2;
+        var dedans=contenuDeRect(C, E);
+        tournerElement(E, cx, cy, horaire);
+        for(var i=0;i<dedans.length;i++) tournerElement(dedans[i], cx, cy, horaire);
+        sauver(); peindre();
+        toast("Pièce tournée d'un quart de tour"+(dedans.length ? " avec "+dedans.length+" élément"+(dedans.length>1?"s":"") : ""),"ok");
+      }
+      bt("⟲ 90°", function(){ quart(false); });
+      bt("⟳ 90°", function(){ quart(true); });
+    }
     if(E.e!==undefined && E.t==="sym"){
       bt("−", function(){ E.e=Math.max(0.02, E.e*0.85); CRE.taille=E.e; sauver(); peindre(); });
       bt("＋", function(){ E.e=Math.min(0.4, E.e*1.18); CRE.taille=E.e; sauver(); peindre(); });
@@ -5161,7 +5243,20 @@ function ouvrirCroquis(C, apresFermeture){
   var bMoins=el("button","crzb","−"); bMoins.type="button";
   bMoins.onclick=function(){ zoomVers(CRE.z/1.35, 0.5, C.ratio/2); };
   var bAjust=el("button","crzb","⤢"); bAjust.type="button";
-  bAjust.onclick=function(){ CRE.z=1; CRE.ox=0; CRE.oy=0; peindre(); };
+  bAjust.onclick=function(){
+    var b=boiteDessin(C);
+    if(!b){ CRE.z=1; CRE.ox=0; CRE.oy=0; peindre(); toast("Rien à cadrer sur ce niveau","att"); return; }
+    var mx=0.06, lg=(b.x2-b.x1)+mx*2, ht=(b.y2-b.y1)+mx*2;
+    if(lg<0.02) lg=0.02;
+    if(ht<0.02) ht=0.02;
+    /* le zoom qui fait tenir la boite dans la page, sur les deux axes */
+    var z=Math.min(1/lg, C.ratio/ht);
+    CRE.z=Math.max(1, Math.min(6, z));
+    CRE.ox=(b.x1+b.x2)/2 - 0.5/CRE.z;
+    CRE.oy=(b.y1+b.y2)/2 - (C.ratio/2)/CRE.z;
+    borner(); peindre();
+    toast("Vue cadrée sur le dessin","ok");
+  };
   zzoom.appendChild(bPlus); zzoom.appendChild(bMoins); zzoom.appendChild(bAjust);
   zone.appendChild(zzoom);
 
@@ -5251,7 +5346,20 @@ function ouvrirCroquis(C, apresFermeture){
   };
   bFormat.onclick=function(){
     if(C.photo){ toast("Le format suit la photo de fond","att"); return; }
-    C.ratio = (C.ratio>1) ? 0.72 : 1.35;
+    /* Trois crans au lieu de deux. Le troisieme coupe la page juste sous le dessin :
+       deux formats figes ne tombent jamais juste, et le plan se retrouve dans un coin
+       avec du blanc partout. Rien n'est deplace ni redimensionne, seule la hauteur de
+       page change, donc les cotes et l'echelle sont intactes et on revient en arriere
+       en rappuyant sur le bouton. */
+    var b=boiteDessin(C);
+    var juste = b ? Math.max(0.35, Math.min(2.2, Math.round((b.y2+0.05)*1000)/1000)) : null;
+    if(C.ratio>1.2){ C.ratio=0.72; toast("Format paysage","ok"); }
+    else if(Math.abs(C.ratio-0.72)<0.001){
+      if(juste!==null && Math.abs(juste-0.72)>0.03){ C.ratio=juste; toast("Page calée sur le plan","ok"); }
+      else { C.ratio=1.35; toast("Format portrait","ok"); }
+    }
+    else { C.ratio=1.35; toast("Format portrait","ok"); }
+    CRE.z=1; CRE.ox=0; CRE.oy=0;
     dimensionner(); peindre();
     sauver();
   };
