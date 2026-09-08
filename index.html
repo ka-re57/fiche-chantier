@@ -263,7 +263,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "2.8";
+var VERSION = "3.1";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -561,6 +561,18 @@ function pad(n){ return (n<10?"0":"")+n; }
 function nb(v){ if(v===""||v===null||v===undefined) return null;
   var x=parseFloat(String(v).replace(",",".")); return isNaN(x)?null:x; }
 function fmt(v,d){ if(v===null||v===undefined||isNaN(v)) return ""; return v.toFixed(d===undefined?0:d).replace(".",","); }
+/* Un input type="number" AVALE la virgule au lieu de la refuser : "2,5" y devient
+   "25". Pas de champ vide, pas d'alerte — une cote fausse d'un facteur 10, releve
+   sur un chantier et jamais rattrapable au bureau. On saisit donc en type="text"
+   avec le clavier decimal : la virgule et le point passent tous les deux, et c'est
+   nb() qui convertit. Ne jamais remettre type="number" dans ce fichier. */
+function champNombre(i){
+  i.type="text";
+  i.setAttribute("inputmode","decimal");
+  i.setAttribute("autocomplete","off");
+  i.removeAttribute("step");
+  return i;
+}
 function slug(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,""); }
 function propre(v){
@@ -827,11 +839,25 @@ function aLotPac(){ for(var i=0;i<V.lots.length;i++) if(V.lots[i].cle==="pac") r
 function besoinNdd(){ return !!(V.aides && V.aides.souhaite) && aLotPac(); }
 
 var vueRendue=null;
+var champIdx = 0;
 function rendre(){
   /* On reste ou on etait : seul un changement d'onglet ramene en haut. */
   var memeVue = (vueRendue===vue);
   var y = memeVue ? (window.pageYOffset || document.documentElement.scrollTop || 0) : 0;
+  /* Saisir une cote appelle majCalculs() a chaque touche, qui rappelle rendre() :
+     l'input est detruit et recree sous le doigt, donc le clavier se ferme et il faut
+     retaper dans la case a chaque chiffre. On note quel champ etait actif et ou etait
+     le curseur, pour le rendre tel quel apres la reconstruction. */
+  var actifCh=null, curPos=null;
+  try{
+    var ae=document.activeElement;
+    if(ae && ae.tagName==="INPUT" && ae.getAttribute("data-ch")){
+      actifCh=ae.getAttribute("data-ch");
+      if(ae.type==="text"){ curPos=ae.selectionStart; }
+    }
+  }catch(e){}
   vueRendue = vue;
+  champIdx = 0;
   rendreOnglets();
   var a=$("#app"); a.innerHTML="";
   if(vue==="accueil") vueAccueil(a);
@@ -845,6 +871,15 @@ function rendre(){
   else vueLot(a, lotParId(vue));
   rendreActions();
   $("#tBarre").textContent = txt(V.client.nom) || "Fiche chantier";
+  if(actifCh){
+    try{
+      var re=document.querySelector('[data-ch="'+actifCh.replace(/"/g,'\\"')+'"]');
+      if(re && document.activeElement!==re){
+        re.focus({preventScroll:true});
+        if(curPos!==null && re.type==="text"){ re.setSelectionRange(curPos, curPos); }
+      }
+    }catch(e){}
+  }
   if(memeVue && y>0){
     try{ window.scrollTo(0, y); }catch(e){}
     /* le contenu peut grandir apres coup (images, blocs) : on repose la position */
@@ -1039,7 +1074,14 @@ function nouvelleFiche(c){
 function champ(parent, lib, val, onc, type, ph){
   var w=el("div","champ");
   w.appendChild(el("label","ch",lib));
-  var i=el("input"); i.type=type||"text"; i.value=val||""; if(ph) i.placeholder=ph;
+  var i=el("input");
+  /* L'ORDRE COMPTE : convertir le champ AVANT d'y ecrire la valeur. Tant qu'il est
+     de type number, lui assigner "10." le vide silencieusement, et la saisie repart
+     de zero a chaque chiffre apres la virgule. */
+  i.type=type||"text";
+  if(type==="number") champNombre(i);
+  i.value=val||""; if(ph) i.placeholder=ph;
+  i.setAttribute("data-ch", lib+"#"+(champIdx++));
   i.oninput=function(){ onc(this.value); sauver(); };
   w.appendChild(i); parent.appendChild(w);
   return i;
@@ -1374,7 +1416,9 @@ function rendreQuestion(parent,L,q){
     ta.oninput=function(){ r.v=this.value; sauver(); };
     w.appendChild(ta);
   } else {
-    var i=el("input"); i.type=(q.t==="num")?"number":"text";
+    var i=el("input"); i.type="text";
+    if(q.t==="num") champNombre(i);
+    i.setAttribute("data-ch", "q:"+L.lid+":"+q.k);
     i.value=r.v||""; i.placeholder=q.u?q.u:"à la main si besoin";
     i.oninput=function(){ r.v=this.value; sauver(); };
     w.appendChild(i);
@@ -3545,10 +3589,20 @@ function elementSous(C,x,y,seuil,interieurPiece){
   return null;
 }
 /* accrochage aux extremites deja tracees : c'est ce qui rend un plan propre */
-function snapPoint(C,x,y,seuil){
-  var sr=seuil===undefined?0.018:seuil, bx=x, by=y, bd=sr;
+function snapPoint(C,x,y,seuil,sauf){
+  /* Le seuil est en coordonnees du plan : dezoome, un rayon fixe devient minuscule
+     a l'ecran et le point ne s'attrape plus. On le divise par le zoom pour garder
+     la meme tolerance sous le doigt quel que soit le grossissement.
+     `sauf` EST INDISPENSABLE : le trait en cours de trace est deja dans C.el, donc
+     sans cette exclusion son bout s'accroche a sa propre position precedente, a
+     quelques pixels de la. Le trait se fige, l'angle cale par calerAngle() est
+     ecrase, et plus rien ne s'accroche aux murs voisins. C'est le defaut qui a
+     rendu le croquis inutilisable jusqu'au 05/09/2026. */
+  var z = (typeof CRE!=="undefined" && CRE && CRE.z) ? CRE.z : 1;
+  var sr=(seuil===undefined?0.022:seuil)/z, bx=x, by=y, bd=sr;
   var niv=C.niv===undefined?1:C.niv;
   C.el.forEach(function(E){
+    if(E===sauf) return;
     if(nivDe(E)!==niv) return;
     var cands=[];
     if(E.t==="main"||E.t==="liaison"){
@@ -4147,8 +4201,9 @@ function demanderTexte(titre, aide, valeur, type, fn){
   var b=el("div","crdlgb");
   b.appendChild(el("h3",null,titre));
   if(aide) b.appendChild(el("p","mini",aide));
-  var i=el("input"); i.type=type||"text"; i.value=valeur||"";
-  if(type==="number"){ i.setAttribute("inputmode","decimal"); i.step="0.01"; }
+  var i=el("input"); i.type=type||"text";
+  if(type==="number") champNombre(i);
+  i.value=valeur||"";
   b.appendChild(i);
   var z=el("div","crdlgz");
   var ok=el("button","btn p","Valider"); ok.type="button";
@@ -4229,9 +4284,9 @@ function demanderPassage(hsp, courant, fn){
   b.appendChild(aide);
   var r=el("div","rang");
   var l1=el("div","champ"); l1.appendChild(el("label","ch","Au départ (m)"));
-  iD.type="number"; iD.step="0.1"; iD.setAttribute("inputmode","decimal"); l1.appendChild(iD);
+  champNombre(iD); l1.appendChild(iD);
   var l2=el("div","champ"); l2.appendChild(el("label","ch","À l'arrivée (m)"));
-  iA.type="number"; iA.step="0.1"; iA.setAttribute("inputmode","decimal"); l2.appendChild(iA);
+  champNombre(iA); l2.appendChild(iA);
   r.appendChild(l1); r.appendChild(l2);
   b.appendChild(r);
   b.appendChild(el("p","mini","Positif pour une montée, négatif pour une descente. Ces hauteurs comptent dans le métré."));
@@ -4269,7 +4324,7 @@ function demanderDenivele(valeur, hsp, fn, niveau){
     zs.appendChild(bb);
   });
   b.appendChild(zs);
-  var i=el("input"); i.type="number"; i.step="0.1"; i.setAttribute("inputmode","decimal");
+  var i=champNombre(el("input"));
   i.value = nb(valeur) ? String(Math.abs(nb(valeur))) : "";
   i.placeholder="hauteur en mètres";
   b.appendChild(i);
@@ -4325,7 +4380,7 @@ function dialogueEchelle(C, surRetrace, apres){
   } else {
     b.appendChild(el("p","mini","Le trait de référence vaut actuellement "+fmt(C.ech.m,2)+" m. Corrige cette valeur et toutes les cotes du croquis se recalculent."));
   }
-  var i=el("input"); i.type="number"; i.step="0.01"; i.setAttribute("inputmode","decimal");
+  var i=champNombre(el("input"));
   i.value = C.ech ? String(C.ech.m) : "";
   i.placeholder="longueur du trait de référence, en mètres";
   if(C.ech) b.appendChild(i);
@@ -4394,7 +4449,7 @@ function ouvrirCroquis(C, apresFermeture){
   var ctx=cv.getContext("2d");
   CRE={C:C, outil:"main", couleur:CR_COULEURS[0], epaisseur:CR_EPAISSEURS[1],
        sym:"rad", sel:null, hist:[], fondImg:null, dernierPen:0, encours:null, W:0, H:0,
-       z:1, ox:0, oy:0, droit:false, clavier:false, res:"frigo", touches:{}, pinch:null};
+       z:1, ox:0, oy:0, droit:true, clavier:false, res:"frigo", touches:{}, pinch:null};
   if(C.niv===undefined) C.niv=1;
   if(C.cotes===undefined) C.cotes=true;
 
@@ -4418,6 +4473,18 @@ function ouvrirCroquis(C, apresFermeture){
   }
   function peindre(){
     crDessiner(C, ctx, CRE.W, CRE.H, CRE.fondImg, CRE.sel, {z:CRE.z, ox:CRE.ox, oy:CRE.oy, niv:C.niv});
+    /* Marque le point sur lequel le trait vient de s'accrocher. Sans ce rond, on ne
+       sait pas si le bout a mordu sur le mur d'a cote ou s'il flotte a un millimetre. */
+    if(CRE.snap){
+      var sx=(CRE.snap.x-CRE.ox)*CRE.z*CRE.W, sy=(CRE.snap.y-CRE.oy)*CRE.z*CRE.W, rr=CRE.W*0.015;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(sx,sy,rr,0,Math.PI*2);
+      ctx.fillStyle="rgba(255,255,255,.75)"; ctx.fill();
+      ctx.lineWidth=Math.max(2,CRE.W*0.004); ctx.strokeStyle="#0D3B66"; ctx.stroke();
+      ctx.beginPath(); ctx.arc(sx,sy,rr*0.3,0,Math.PI*2);
+      ctx.fillStyle="#0D3B66"; ctx.fill();
+      ctx.restore();
+    }
     majInfo();
     majContexte();
   }
@@ -4859,11 +4926,28 @@ function ouvrirCroquis(C, apresFermeture){
       }
       var seg=segmentSous(C,p.x,p.y);
       if(seg){
-        var nk=insererSommet(seg.E, seg.k, p.x, p.y);
-        CRE.sel=seg.i; CRE.somm={E:seg.E, k:nk};
-        CRE.encours={mode:"sommet", E:seg.E, k:nk};
-        CRE.hist.push({a:"sommet", E:seg.E, k:nk});
-        sauver(); peindre();
+        /* Appuyer sur un trait doit le DEPLACER. Avant le 05/09/2026 ca inserait
+           d'office un sommet : impossible de bouger une ligne sans la deformer,
+           puisque tout appui dessus tombait sur ce cas. L'insertion de sommet passe
+           sur l'appui long, qui est le geste ou on prend le temps de viser. */
+        var Eseg=seg.E;
+        CRE.sel=seg.i;
+        CRE.somm=null;
+        CRE.encours={mode:"deplacer", i:seg.i,
+          dx:(Eseg.x!==undefined?p.x-Eseg.x:0), dy:(Eseg.y!==undefined?p.y-Eseg.y:0),
+          ox:p.x, oy:p.y,
+          suite: Eseg.t==="piece" ? contenuDeRect(C, Eseg) : null};
+        CRE.longPress=setTimeout(function(){
+          CRE.longPress=null;
+          if(!CRE.encours || CRE.encours.mode!=="deplacer" || CRE.encours.i!==seg.i) return;
+          var nk=insererSommet(Eseg, seg.k, p.x, p.y);
+          CRE.somm={E:Eseg, k:nk};
+          CRE.encours={mode:"sommet", E:Eseg, k:nk};
+          CRE.hist.push({a:"sommet", E:Eseg, k:nk});
+          toast("Point ajouté sur le trait — tire dessus pour le plier","ok");
+          sauver(); peindre();
+        }, 550);
+        peindre();
         return;
       }
       CRE.somm=null;
@@ -4891,6 +4975,10 @@ function ouvrirCroquis(C, apresFermeture){
     if(e.pointerType==="pen") CRE.dernierPen=Date.now();
     e.preventDefault();
     var p=pos(e), m=CRE.encours;
+    if(CRE.longPress && m.ox!==undefined &&
+       (Math.abs(p.x-m.ox)+Math.abs(p.y-m.oy)) > 0.006){
+      clearTimeout(CRE.longPress); CRE.longPress=null;
+    }
     if(m.mode==="main"){
       var pts=m.E.p, n=pts.length;
       if(Math.abs(p.x-pts[n-2])+Math.abs(p.y-pts[n-1]) < 0.004) return;
@@ -4901,13 +4989,16 @@ function ouvrirCroquis(C, apresFermeture){
       ctx.lineTo(p.x*CRE.W, p.y*CRE.W); ctx.stroke();
     } else if(m.mode==="droit"){
       var q=calerAngle(m.E.p[0], m.E.p[1], p.x, p.y);
-      var sp2=snapPoint(C, q.x, q.y);
+      var sp2=snapPoint(C, q.x, q.y, undefined, m.E);
       m.E.p[2]=r3(sp2.x); m.E.p[3]=r3(sp2.y);
+      CRE.snap = sp2.pris ? {x:sp2.x, y:sp2.y} : null;
       peindre();
     } else if(m.mode==="seg"){
       var q2=calerAngle(m.E.x1, m.E.y1, p.x, p.y);
-      var sp3=snapPoint(C, q2.x, q2.y);
-      m.E.x2=r3(sp3.x); m.E.y2=r3(sp3.y); peindre();
+      var sp3=snapPoint(C, q2.x, q2.y, undefined, m.E);
+      m.E.x2=r3(sp3.x); m.E.y2=r3(sp3.y);
+      CRE.snap = sp3.pris ? {x:sp3.x, y:sp3.y} : null;
+      peindre();
     } else if(m.mode==="gomme"){
       var k=elementSous(C,p.x,p.y);
       if(k!==null && C.el[k].t!=="piece"){ supprimer(k); peindre(); }
@@ -4918,7 +5009,7 @@ function ouvrirCroquis(C, apresFermeture){
       if(CRE.droit && m.k>0){
         pt2=calerAngle(tab[(m.k-1)*2], tab[(m.k-1)*2+1], p.x, p.y);
       }
-      var sn=snapPoint(C, pt2.x, pt2.y, 0.014);
+      var sn=snapPoint(C, pt2.x, pt2.y, 0.014, m.E);
       tab[m.k*2]=r3(sn.x); tab[m.k*2+1]=r3(sn.y);
       majBoite(m.E);
       peindre();
@@ -4954,6 +5045,8 @@ function ouvrirCroquis(C, apresFermeture){
     }
     if(e.pointerId!==actif) return;
     actif=null;
+    CRE.snap=null;
+    if(CRE.longPress){ clearTimeout(CRE.longPress); CRE.longPress=null; }
     var m=CRE.encours; CRE.encours=null;
     if(!m) return;
     if(m.mode==="droit"){
@@ -5036,7 +5129,7 @@ function ouvrirCroquis(C, apresFermeture){
   outil("echelle","📐 Échelle");
 
   bas.appendChild(el("span","crsep"));
-  var bDroit=el("button","crb","📐 Règle"); bDroit.type="button";
+  var bDroit=el("button","crb"+(CRE.droit?" on":""),"📐 Règle"); bDroit.type="button";
   bDroit.onclick=function(){
     CRE.droit=!CRE.droit;
     bDroit.className="crb"+(CRE.droit?" on":"");
