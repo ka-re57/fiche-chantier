@@ -46,7 +46,13 @@ body{background:var(--fond);color:var(--texte);font-family:var(--corps);
   display:flex;align-items:center;gap:10px;padding:6px 12px;min-height:45px}
 .barre .logo{height:22px;width:auto;flex:0 0 auto}
 .barre .titre{font-family:var(--ui);font-weight:600;font-size:17px;flex:1 1 auto;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:34px;display:flex;align-items:center;gap:6px;cursor:pointer;
+  background:none;border:0;color:inherit;text-align:left;padding:0 4px;border-radius:6px}
+.barre .titre:active{background:rgba(255,255,255,.18)}
+.barre .titre::after{content:"\25BE";font-size:13px;opacity:.75;flex:none}
+.barre .titre .nbf{font-size:12px;font-weight:700;padding:1px 7px;border-radius:100px;background:rgba(255,255,255,.22);flex:none}
+.fl{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.fl .chb .e{font-size:12px}
 .pastille{font-family:var(--ui);font-size:12px;font-weight:600;padding:2px 8px;
   border-radius:100px;background:rgba(255,255,255,.16);white-space:nowrap}
 .pastille.ok{background:var(--okf);color:var(--ok)}
@@ -127,6 +133,16 @@ label.ch{display:block;font-size:13px;color:var(--texte3);font-family:var(--ui);
   border-radius:8px;padding:8px 10px;margin:8px 0 0;color:var(--texte2)}
 .calc b{color:var(--texte);font-weight:600}
 .photos{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.phatt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  width:84px;min-height:74px;border-radius:8px;border:1px dashed var(--trait);background:var(--carte2);
+  color:var(--texte2);font-family:var(--ui);font-weight:600;font-size:11px;line-height:1.15;
+  text-align:center;padding:4px;cursor:pointer}
+.phatt .ic{font-size:20px;line-height:1}
+.ph.att{width:84px}
+.ouv{display:flex;gap:8px;align-items:flex-end;margin-top:4px}
+.ouv .champ{flex:1 1 90px;min-width:0}
+.ouv .res{flex:0 0 auto;font-family:var(--num);font-size:14px;color:var(--texte2);min-height:44px;display:flex;align-items:center}
+.ouv .btn{flex:0 0 auto}
 .ph{position:relative;width:74px;height:74px;border-radius:8px;overflow:hidden;border:1px solid var(--trait)}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 .ph button{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;
@@ -172,7 +188,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .crb.on{background:var(--marque);color:var(--surmarque);border-color:var(--marque)}
 .crb.d{color:var(--mal);border-color:var(--mal)}
 .crhaut .crb{min-height:38px;font-size:14px;padding:0 10px}
-.crzone{flex:1 1 auto;position:relative;display:flex;align-items:center;justify-content:center;
+.crzone{flex:1 1 auto;position:relative;display:flex;align-items:flex-start;justify-content:center;
   background:#D8E2EC;overflow:hidden;min-height:0}
 .crcv{background:#fff;touch-action:none;-ms-touch-action:none;border-radius:4px;
   box-shadow:0 2px 14px rgba(14,26,38,.22);cursor:crosshair;display:block}
@@ -192,7 +208,8 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   border-bottom:1px solid var(--trait);overflow-x:auto}
 .crniv .crb{min-height:36px;font-size:14px;padding:0 11px}
 .crctx{display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--attf);
-  border-top:1px solid var(--trait);overflow-x:auto}
+  border-top:1px solid var(--trait);overflow-x:auto;min-height:52px;box-sizing:border-box}
+.crctx:empty{background:var(--carte2)}
 .crctxn{font-family:var(--ui);font-weight:700;font-size:15px;white-space:nowrap;flex:0 0 auto}
 .crpal{display:flex;flex-wrap:wrap;gap:6px;padding:9px;background:var(--carte2);
   border-top:1px solid var(--trait);max-height:44vh;overflow-y:auto}
@@ -246,7 +263,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <div class="barre">
   <img class="logo" id="logo" alt="KA-RÉ">
-  <span class="titre" id="tBarre">Fiche chantier</span>
+  <button class="titre" id="tBarre" type="button" aria-haspopup="dialog" title="Passer à une autre fiche">Fiche chantier</button>
   <span class="pastille" id="pEtat">prêt</span>
   <button class="icb" id="bReglages" type="button" aria-label="Réglages">&#9881;</button>
 </div>
@@ -259,11 +276,12 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <dialog id="dlgReglages"><div class="dlg-tete">Réglages</div><div class="dlg-corps" id="corpsReglages"></div></dialog>
 <dialog id="dlgLots"><div class="dlg-tete">Ajouter un lot</div><div class="dlg-corps" id="corpsLots"></div></dialog>
+<dialog id="dlgFiches"><div class="dlg-tete">Fiches ouvertes</div><div class="dlg-corps" id="corpsFiches"></div></dialog>
 <dialog id="dlgTexte"><div class="dlg-tete">Texte</div><div class="dlg-corps" id="corpsTexte"></div></dialog>
 
 <script>
 "use strict";
-var VERSION = "3.3";
+var VERSION = "3.7";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -277,6 +295,23 @@ var LOGO_KARE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJMAAABACAYAAAAeT
      si : fonction(L) -> la question s'affiche ou non
    ============================================================ */
 function rep(L,k){ return (L.rep[k]||{}).v || ""; }
+/* v3.6 — la clim remplace le chauffage central : une seule reponse, dans le lot clim,
+   qui commande les questions de depose, le bilan chaud et les postes du devis. */
+function climRemplace(L){ return /^Oui/.test(rep(L,"remplace")); }
+function lotClim(){ for(var i=0;i<V.lots.length;i++) if(V.lots[i].cle==="clim") return V.lots[i]; return null; }
+function climEstChauffage(){ var L=lotClim(); return !!(L && climRemplace(L)); }
+/* v3.7 — le client hesite entre chaudiere gaz et PAC : une seule reponse dans le lot gaz,
+   le tronc commun pose une fois, puis les questions propres a la PAC. Le bureau chiffre
+   une version par case cochee. */
+function gazHesite(L){ return L.cle==="gaz" && /^À trancher/.test(rep(L,"remplace")); }
+function versionsGaz(L){ var v=rep(L,"versions"); return v ? String(v).split(" + ") : []; }
+function gazVersionPac(L){
+  if(!gazHesite(L)) return false;
+  var v=versionsGaz(L); if(!v.length) return true;
+  for(var i=0;i<v.length;i++) if(/^PAC/.test(v[i])) return true;
+  return false;
+}
+function lotGazHesite(){ for(var i=0;i<V.lots.length;i++) if(gazHesite(V.lots[i])) return V.lots[i]; return null; }
 
 var LOTS = [
 
@@ -284,6 +319,14 @@ var LOTS = [
    {k:"marque", l:"Chaudière existante — marque, modèle, année, puissance", i:"Photo de la plaque"},
    {k:"condens", l:"Est-elle à condensation ?", t:"chx", opts:["Oui","Non","Je ne sais pas"],
     i:"Décisif : une condensation déposée n'ouvre pas droit au Coup de pouce CEE"},
+   {k:"remplace", l:"On remplace par quoi ?", t:"chx",
+    opts:["Chaudière gaz","À trancher — gaz ou PAC, plusieurs versions"],
+    i:"« À trancher » pose une seule fois le tronc commun, puis ce qu'il faut pour la PAC. Le bureau chiffre une version par case cochée.",
+    apres:function(L,v){ if(/^À trancher/.test(v) && !rep(L,"versions")) L.rep.versions={e:"dit", v:"Chaudière gaz + PAC air/eau"}; }},
+   {k:"versions", l:"Versions à chiffrer", t:"multi", opts:["Chaudière gaz","PAC air/eau","PAC hybride"],
+    i:"Un devis par version, même relevé", si:gazHesite},
+   {k:"pref", l:"Ce que le client préfère a priori", t:"chx", opts:["Gaz","PAC","Hybride","Sans avis"],
+    i:"Le pourquoi — prix, habitude, écologie — va dans « Ce que je retiens »", si:gazHesite},
    {k:"evac", l:"Évacuation actuelle", t:"chx", opts:["Ventouse","Conduit maçonné","Tubage existant","Autre"]},
    {k:"conduit", l:"Conduit — état, section, hauteur, tubage nécessaire ?"},
    {k:"carot", l:"Carottage ventouse — nombre de trous", t:"num", u:"trous"},
@@ -302,7 +345,23 @@ var LOTS = [
    {k:"nbpers", l:"Nombre de personnes dans le logement", t:"num", u:"personnes",
     i:"Décide du modèle et de la préparation d'eau chaude"},
    {k:"nbsdb", l:"Nombre de salles de bain", t:"num", u:"SDB"},
-   {k:"acces", l:"Accès chaufferie — passage, escalier, encombrement"}
+   {k:"acces", l:"Accès chaufferie — passage, escalier, encombrement"},
+   {k:"pac_emplue", l:"Version PAC — emplacement du groupe extérieur : dégagements, distance, dénivelé, voisinage", si:gazHesite},
+   {k:"pac_supportue", l:"Version PAC — support du groupe extérieur", t:"chx",
+    opts:["Plots au sol","Dalle béton à prévoir","Dalle fournie par le client","Console murale","À voir"], si:gazHesite},
+   {k:"pac_emplui", l:"Version PAC — emplacement du module intérieur", i:"Souvent à la place de la chaudière — garage, local technique, cellier", si:gazHesite},
+   {k:"pac_liaison", l:"Version PAC — longueur de liaison frigorifique", t:"num", u:"ml", si:gazHesite},
+   {k:"pac_carot", l:"Version PAC — carottages pour les liaisons, nombre de trous", t:"num", u:"trous", si:gazHesite},
+   {k:"pac_elec", l:"Version PAC — alimentation électrique", t:"chx", opts:["Monophasé","Triphasé","À vérifier"],
+    i:"Le calibre de l'abonnement se note dans l'onglet Maison", si:gazHesite},
+   {k:"pac_bruit", l:"Version PAC — nuisance sonore : mitoyenneté, chambre à proximité, voisinage", si:gazHesite},
+   {k:"pac_ecs", l:"Version PAC — eau chaude", t:"chx",
+    opts:["PAC duo (ballon intégré)","Ballon ECS séparé sur la PAC","Chauffe-eau thermodynamique","Conservée telle quelle","À voir"], si:gazHesite},
+   {k:"pac_isolcoh", l:"Version PAC — isolation cohérente avec une PAC ?", t:"chx",
+    opts:["Oui","Non — devoir de conseil écrit","À voir"], si:gazHesite},
+   {k:"pac_bloque", l:"Ce qui bloque la PAC sur place", t:"multi",
+    opts:["Rien","Bruit / voisinage","Pas de place pour le groupe","Abonnement mono insuffisant","Émetteurs haute température","Isolation insuffisante","Pas de local pour le module"],
+    i:"Coche tout ce qui s'applique — le bureau en tient compte avant de chiffrer la version PAC", si:gazHesite}
  ]},
 
  {cle:"pac", icone:"♨️", court:"PAC air/eau", label:"PAC air/eau", pieces:true, q:[
@@ -339,6 +398,42 @@ var LOTS = [
    {k:"techno", l:"Technologie retenue", t:"chx",
     opts:["Gainable","Split / multi-split","Gainable + split","Indécis"],
     i:"Commande tout le reste du questionnaire. En « indécis », on relève tout et on chiffre deux versions."},
+   {k:"remplace", l:"Cette clim remplace le chauffage existant ?", t:"chx",
+    opts:["Non — clim en plus","Oui — la clim devient le chauffage principal"],
+    i:"Si oui : dimensionnement en chaud à température de base, dépose du générateur, pièces sans unité à chauffer autrement"},
+   {k:"gen_dep", l:"Générateur déposé — marque, modèle, année, puissance", i:"Photo de la plaque",
+    si:climRemplace},
+   {k:"gaz_apres", l:"L'alimentation gaz après travaux", t:"chx",
+    opts:["Bouchonnée — le client résilie, GRDF dépose le compteur","Conservée pour la cuisson","Pas de gaz","À voir"],
+    i:"Le bouchonnage est une ligne du devis ; la résiliation est une démarche du client",
+    si:climRemplace},
+   {k:"conduit_dep", l:"Le conduit de fumée", t:"chx",
+    opts:["Condamné","Conservé pour un autre usage","Sans objet — ventouse","À voir"],
+    si:climRemplace},
+   {k:"rad_dep", l:"Les radiateurs et la tuyauterie", t:"chx",
+    opts:["Déposés et évacués par KA-RÉ","Déposés, tuyauterie laissée en place","Le client s'en charge","À voir"],
+    i:"« Le client s'en charge » vaut pour lui ou pour une entreprise qu'il mandate — à écrire dans les exclusions",
+    si:climRemplace,
+    apres:function(L,v){
+      if(!v || v==="À voir") return;
+      var n=0;
+      V.pieces.forEach(function(P){ (P.rads||[]).forEach(function(R){ if(!R.sort||R.sort==="À trancher"){ R.sort="Déposé"; n++; } }); });
+      if(n) toast(n+" émetteur"+(n>1?"s":"")+" marqué"+(n>1?"s":"")+" « Déposé » dans les pièces","ok");
+    }},
+   {k:"ecs_apres", l:"L'eau chaude sanitaire après travaux", t:"chx",
+    opts:["Chauffe-eau thermodynamique à poser","Chauffe-eau électrique à poser","Production conservée","À voir"],
+    i:"Une chaudière déposée emporte l'eau chaude avec elle — c'est la question qu'on oublie",
+    si:climRemplace},
+   {k:"nbpers", l:"Nombre d'occupants — pour le volume du chauffe-eau", t:"num",
+    si:function(L){ return climRemplace(L) && /à poser/.test(rep(L,"ecs_apres")); }},
+   {k:"appoint", l:"Les pièces sans unité intérieure (SDB, WC, dégagement…)", t:"chx",
+    opts:["Appoint électrique posé par KA-RÉ","Le client s'en charge","Aucun chauffage prévu","À voir"],
+    i:"La liste des pièces concernées est calculée plus bas, depuis l'onglet Pièces",
+    si:climRemplace},
+   {k:"abonnement", l:"L'abonnement électrique suffira-t-il avec la clim en chauffage ?", t:"chx",
+    opts:["Oui","À augmenter","À vérifier"],
+    i:"Le calibre actuel se note dans l'onglet Maison",
+    si:climRemplace},
    {k:"repartition", l:"Quelles pièces en gainable, quelles pièces en split ?",
     si:function(L){ return rep(L,"techno")==="Gainable + split"; }},
    {k:"typeui", l:"Type des unités intérieures", t:"chx",
@@ -561,6 +656,11 @@ function pad(n){ return (n<10?"0":"")+n; }
 function nb(v){ if(v===""||v===null||v===undefined) return null;
   var x=parseFloat(String(v).replace(",",".")); return isNaN(x)?null:x; }
 function fmt(v,d){ if(v===null||v===undefined||isNaN(v)) return ""; return v.toFixed(d===undefined?0:d).replace(".",","); }
+function heureCourte(iso){
+  var d=new Date(iso); if(isNaN(d.getTime())) return "?";
+  var h=d.getHours(), m=d.getMinutes();
+  return h+" h "+(m<10?"0":"")+m;
+}
 /* Un input type="number" AVALE la virgule au lieu de la refuser : "2,5" y devient
    "25". Pas de champ vide, pas d'alerte — une cote fausse d'un facteur 10, releve
    sur un chantier et jamais rattrapable au bureau. On saisit donc en type="text"
@@ -680,6 +780,12 @@ var V = null;
   V.pieces.forEach(function(P){ if(sansAccent(P.niveau)==="Etage") P.niveau="1er étage"; });
   V.pieces.forEach(function(P){ if(!P.croquis) P.croquis=[]; });
   fusionner(V, ficheVierge());
+  fiches.forEach(function(F){
+    if(F && F.client && !txt(F.client.nom) && txt(F.societe)){
+      F.client.nom=F.societe;
+      noterIncident("nom client absent sur la fiche "+F.id+" — repris de la société « "+F.societe+" »");
+    }
+  });
 })();
 function fusionner(cible, modele){
   for(var k in modele){
@@ -737,6 +843,18 @@ function toast(m,c){
 /* ============================================================
    PARSEUR DU COMMENTAIRE D'OPPORTUNITÉ
    ============================================================ */
+/* Une fiche liee a une opportunite ne part jamais « sans nom » : la societe Axonaut,
+   puis le titre de l'opportunite (« ... - NOM Prenom, Ville »), font foi a defaut. */
+function nomDuTitre(t){
+  var s=String(t||""), i=s.lastIndexOf(" - ");
+  if(i>=0) s=s.slice(i+3);
+  var j=s.indexOf(","); if(j>=0) s=s.slice(0,j);
+  return propre(s);
+}
+function nomClient(F){
+  F=F||V;
+  return propre(F.client && F.client.nom) || propre(F.societe) || nomDuTitre(F.opp_titre) || "";
+}
 function parseCommentaire(c){
   var o = {nom:"",tel:"",email:"",adresse:"",ville:"",logement:"",statut:"",objet:"",drive:"",notes:txt(c)};
   if(!c) return o;
@@ -835,7 +953,16 @@ function questions(L){
 }
 function besoinPieces(){ for(var i=0;i<V.lots.length;i++) if(V.lots[i].pieces) return true; return false; }
 function aLotClim(){ for(var i=0;i<V.lots.length;i++) if(V.lots[i].cle==="clim") return true; return false; }
-function aLotPac(){ for(var i=0;i<V.lots.length;i++) if(V.lots[i].cle==="pac") return true; return false; }
+function aLotPac(){ for(var i=0;i<V.lots.length;i++) if(V.lots[i].cle==="pac"||gazVersionPac(V.lots[i])) return true; return false; }
+/* un lot qui chauffe de l'eau : le regime de depart et le vase n'ont de sens que la */
+function aLotHydraulique(){
+  for(var i=0;i<V.lots.length;i++){
+    var L=V.lots[i];
+    if(L.cle==="pac"||L.cle==="gaz"||L.cle==="fioul") return true;
+    if(L.cle==="autre" && /plancher|radiateur/i.test(L.nom||"")) return true;
+  }
+  return false;
+}
 function besoinNdd(){ return !!(V.aides && V.aides.souhaite) && aLotPac(); }
 
 var vueRendue=null;
@@ -870,7 +997,7 @@ function rendre(){
   else if(vue==="envoi") vueEnvoi(a);
   else vueLot(a, lotParId(vue));
   rendreActions();
-  $("#tBarre").textContent = txt(V.client.nom) || "Fiche chantier";
+  majTitre();
   if(actifCh){
     try{
       var re=document.querySelector('[data-ch="'+actifCh.replace(/"/g,'\\"')+'"]');
@@ -891,6 +1018,46 @@ function rendre(){
   }
 }
 
+/* Le nom du client dans la barre est un menu : toutes les fiches en cours y sont,
+   on passe de l'une a l'autre sans finir la premiere. Rien ne prend de place a l'ecran. */
+function ficheEnCours(){ return fiches.filter(function(f){ return f.statut!=="envoyee"; }); }
+function majTitre(){
+  var t=$("#tBarre"); if(!t) return;
+  t.innerHTML="";
+  t.appendChild(document.createTextNode(txt(V.client.nom) || nomClient() || "Fiche chantier"));
+  var n=ficheEnCours().length;
+  if(n>1) t.appendChild(el("span","nbf",String(n)));
+}
+function ouvrirFiches(){
+  var d=$("#dlgFiches"), c=$("#corpsFiches");
+  c.innerHTML="";
+  sauverTout();
+  var enCours=ficheEnCours().sort(function(x,y){ return (y.maj||0)-(x.maj||0); });
+  if(enCours.length){
+    c.appendChild(el("p","mini","Un appui pour passer à une autre fiche. Celle-ci est enregistrée telle quelle."));
+    var ul=el("ul","fl");
+    enCours.forEach(function(f){
+      var li=el("li"), b=el("button","chb"); b.type="button";
+      b.appendChild(el("span","t",(txt(f.client.nom)||nomClient(f)||"Sans nom")+(f.id===V.id?"  ← en cours":"")));
+      b.appendChild(el("span","s",(f.lots.map(function(L){ return L.nom||defLot(L.cle).court; }).join(" · ")) || "aucun lot"));
+      b.appendChild(el("span","e","modifiée le "+new Date(f.maj||Date.now()).toLocaleString("fr-FR")));
+      if(f.id===V.id){ b.disabled=true; b.style.opacity="0.6"; }
+      b.onclick=function(){ d.close(); ouvrirFiche(f.id); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+    c.appendChild(ul);
+  } else c.appendChild(el("p","mini","Aucune autre fiche en cours."));
+  var z=el("div","rang"); z.style.marginTop="10px";
+  var bN=el("button","btn p","＋ Nouvelle fiche pour un chantier"); bN.type="button";
+  bN.onclick=function(){ d.close(); aller("accueil"); toast("Choisis le chantier dans la liste — la fiche en cours reste ouverte","ok"); };
+  var bL=el("button","btn","＋ Fiche libre"); bL.type="button";
+  bL.onclick=function(){ d.close(); nouvelleFiche(null); };
+  z.appendChild(bN); z.appendChild(bL); c.appendChild(z);
+  var an=el("button","btn mini large","Fermer"); an.type="button"; an.style.marginTop="10px";
+  an.onclick=function(){ d.close(); };
+  c.appendChild(an);
+  d.showModal();
+}
 function rendreOnglets(){
   var o=$("#onglets"); o.innerHTML="";
   if(vue==="accueil"){ o.style.display="none"; return; }
@@ -1071,6 +1238,37 @@ function nouvelleFiche(c){
 /* ============================================================
    BRIQUES DE FORMULAIRE
    ============================================================ */
+/* v3.6 — au telemetre on lit deux nombres a la suite : "4,9 x 2,7" (ou "4,9 2,7",
+   "4,9*2,7", "4,9/2,7") tape dans la case longueur est reparti sur longueur, largeur
+   et hauteur. Le clavier decimal n'a ni x ni espace sur tous les Android : Entree
+   passe aussi a la case suivante. */
+function eclaterCotes(v){
+  var t=String(v||"").replace(/,/g,".").replace(/[x×X*\/;]/g," ").replace(/\s+/g," ").trim();
+  if(!t) return null;
+  var parts=t.split(" "), out=[];
+  for(var i=0;i<parts.length;i++){
+    if(!/^\d+(\.\d+)?$/.test(parts[i])) return null;
+    out.push(parts[i].replace(".",","));
+  }
+  return out.length>=2 && out.length<=3 ? out : null;
+}
+function chainer(inputs){
+  inputs.forEach(function(i,k){
+    var dernier = k===inputs.length-1;
+    i.setAttribute("enterkeyhint", dernier?"done":"next");
+    i.addEventListener("keydown", function(ev){
+      if(ev.key!=="Enter" && ev.keyCode!==13) return;
+      ev.preventDefault();
+      try{ i.dispatchEvent(new Event("change")); }catch(e){}
+      var suivant=null;
+      if(!dernier){
+        var ch=inputs[k+1].getAttribute("data-ch");
+        suivant=document.querySelector('[data-ch="'+String(ch).replace(/"/g,'\\"')+'"]');
+      }
+      if(suivant) suivant.focus(); else i.blur();
+    });
+  });
+}
 function champ(parent, lib, val, onc, type, ph){
   var w=el("div","champ");
   w.appendChild(el("label","ch",lib));
@@ -1154,7 +1352,16 @@ function vueClient(a){
   if(V.opp_titre) a.appendChild(el("p","aide","Opportunité Axonaut : "+V.opp_titre+" · "+libEtape(V.opp_etape)));
 
   var b1=bloc(a,"Client et chantier",null,true);
-  champ(b1,"Nom", V.client.nom, function(v){ V.client.nom=v; $("#tBarre").textContent=v||"Fiche chantier"; });
+  var nomRepli = propre(V.societe) || nomDuTitre(V.opp_titre);
+  champ(b1,"Nom", V.client.nom, function(v){
+    if(!txt(v) && nomRepli) noterIncident("nom client vidé sur la fiche "+V.id+" (repli : "+nomRepli+")");
+    V.client.nom=v; majTitre();
+  }, "text", nomRepli ? nomRepli+" (société Axonaut)" : "");
+  if(!txt(V.client.nom) && nomRepli){
+    var bRep=el("button","btn mini","↩ Reprendre « "+nomRepli+" »"); bRep.type="button";
+    bRep.onclick=function(){ V.client.nom=nomRepli; sauverTout(); rendre(); };
+    b1.appendChild(bRep);
+  }
   var r1=el("div","rang"); b1.appendChild(r1);
   champ(r1,"Téléphone", V.client.tel, function(v){ V.client.tel=v; }, "tel");
   champ(r1,"E-mail", V.client.email, function(v){ V.client.email=v; }, "email");
@@ -1240,6 +1447,7 @@ function vueMaison(a){
   if(M.mitoyen && M.mitoyen!=="Maison seule")
     b2.appendChild(el("p","mini","\u26a0 Projipack ne tient pas compte de la mitoyennet\u00e9 : le G ci-dessus est celui d'une maison seule. Un logement mitoyen d\u00e9perd nettement moins."));
 
+  if(aLotPac()){
   var b2b=bloc(a,"Isolation \u2014 description pour la note de dimensionnement",null,false);
   b2b.appendChild(el("p","mini","La grille du dossier d'aide ne conna\u00eet que des \u00e9paisseurs. C'est ce qui d\u00e9termine le cran d\u00e9clar\u00e9, et c'est ce qu'un contr\u00f4leur v\u00e9rifie sur place."));
   puces(b2b,"\u00c9paisseur d'isolant dans les murs",["Non isol\u00e9s","5 cm","10 cm et plus"],M.mur_cm,
@@ -1259,28 +1467,39 @@ function vueMaison(a){
       " C'est la paroi la plus mauvaise qui commande.";
   }
   b2b.appendChild(ci);
+  }
 
-  var b2c=bloc(a,"Temp\u00e9ratures et r\u00e9gime",null,false);
+  var b2c=bloc(a,aLotHydraulique()?"Temp\u00e9ratures et r\u00e9gime":"Temp\u00e9ratures",null,false);
   var rt=el("div","rang"); b2c.appendChild(rt);
   champ(rt,"Temp\u00e9rature de base (\u00b0C)", M.tbase, function(v){ M.tbase=v; majCalculs(); }, "number");
   champ(rt,"Altitude (m)", M.alt, function(v){ M.alt=v; }, "number");
   champ(rt,"Temp\u00e9rature de confort (\u00b0C)", M.tconfort, function(v){ M.tconfort=v; majCalculs(); }, "number");
-  b2c.appendChild(el("p","mini","Moselle : \u201315 \u00b0C en zone H1b. Projipack repasse la temp\u00e9rature de confort \u00e0 19 \u00b0C d\u00e8s qu'on change de tuile \u2014 \u00e0 reforcer \u00e0 chaque fois. La note de dimensionnement, elle, impose 19 \u00b0C sans discussion."));
-  puces(b2c,"R\u00e9gime de d\u00e9part vis\u00e9",["35/30 plancher","45/35","55/45","65/55","75/65 existant"],M.regime,
+  b2c.appendChild(el("p","mini",aLotPac()
+    ? "Moselle : \u201315 \u00b0C en zone H1b. Projipack repasse la temp\u00e9rature de confort \u00e0 19 \u00b0C d\u00e8s qu'on change de tuile \u2014 \u00e0 reforcer \u00e0 chaque fois. La note de dimensionnement, elle, impose 19 \u00b0C sans discussion."
+    : "Moselle : \u201315 \u00b0C en zone H1b. La temp\u00e9rature de base commande la puissance chaud de chaque pi\u00e8ce."));
+  if(aLotHydraulique())
+    puces(b2c,"R\u00e9gime de d\u00e9part vis\u00e9",["35/30 plancher","45/35","55/45","65/55","75/65 existant"],M.regime,
         function(v){ M.regime=v; sauver(); rendre(); });
 
-  var b2d=bloc(a,"Ce que Projipack r\u00e9clame en plus",null,false);
+  /* v3.6 — toujours visible : l'abonnement dit si le client devra passer au calibre superieur,
+     quel que soit le lot. Ce qui ne sert qu'a Projipack n'apparait qu'avec un lot PAC. */
+  var b2d=bloc(a,"\u00c9nergie, abonnement et chauffage actuel",null,false);
   puces(b2d,"Abonnement \u00e9lectrique",["6 kVA mono","9 kVA mono","12 kVA mono","15 kVA mono","18 kVA mono","Triphas\u00e9","\u00c0 v\u00e9rifier"],M.abonnement,
         function(v){ M.abonnement=v; sauver(); rendre(); });
-  puces(b2d,"\u00c9ch\u00e9ance du projet",["Imm\u00e9diat","Moins de 3 mois","3 \u00e0 6 mois","Plus de 6 mois"],M.echeance,
-        function(v){ M.echeance=v; sauver(); rendre(); });
-  b2d.appendChild(el("p","mini","L'\u00e9ch\u00e9ance est obligatoire dans le logiciel : sans elle, impossible d'avancer."));
+  if(aLotClim()) b2d.appendChild(el("p","mini","Une clim en chauffage principal tire en plein hiver : v\u00e9rifier que le calibre suit, sinon le signaler au client par \u00e9crit."));
+  puces(b2d,"\u00c9nergie actuelle",["Gaz","Fioul","\u00c9lectricit\u00e9","Bois","Propane"],M.facture_energie,
+        function(v){ M.facture_energie=v; sauver(); rendre(); });
   var rp=el("div","rang"); b2d.appendChild(rp);
   champ(rp,"Puissance de la chaudi\u00e8re d\u00e9pos\u00e9e (W)", M.chaudiere_w, function(v){ M.chaudiere_w=v; }, "number");
   champ(rp,"Facture annuelle de chauffage (\u20ac)", M.facture_montant, function(v){ M.facture_montant=v; }, "number");
-  b2d.appendChild(el("p","mini","La puissance se saisit en watts dans Projipack, pas en kilowatts \u2014 c'est \u00e9crit sur la plaque de la chaudi\u00e8re."));
-  puces(b2d,"\u00c9nergie actuelle",["Gaz","Fioul","\u00c9lectricit\u00e9","Bois","Propane"],M.facture_energie,
-        function(v){ M.facture_energie=v; sauver(); rendre(); });
+  champ(rp,"Consommation annuelle (kWh)", M.facture_kwh, function(v){ M.facture_kwh=v; }, "number");
+  if(lotGazHesite()) b2d.appendChild(el("p","mini","Gaz ou PAC : le comparatif du bureau part de la facture en \u20ac et en kWh \u2014 les deux sont sur la facture annuelle du client."));
+  b2d.appendChild(el("p","mini","La puissance se lit en watts sur la plaque de la chaudi\u00e8re"+(aLotPac()?" \u2014 Projipack la r\u00e9clame en watts, pas en kilowatts":"")+"."));
+  if(aLotPac()){
+    puces(b2d,"\u00c9ch\u00e9ance du projet",["Imm\u00e9diat","Moins de 3 mois","3 \u00e0 6 mois","Plus de 6 mois"],M.echeance,
+        function(v){ M.echeance=v; sauver(); rendre(); });
+    b2d.appendChild(el("p","mini","L'\u00e9ch\u00e9ance est obligatoire dans Projipack : sans elle, impossible d'avancer."));
+  }
 
   var b3=bloc(a,"Accès et réseaux",null,false);
   champ(b3,"Accès, stationnement, étage", M.acces, function(v){ M.acces=v; });
@@ -1304,6 +1523,17 @@ function vueLot(a, L){
 
   alertesLot(a,L);
 
+  var np=(L.photos||[]).length;
+  var bp=bloc(a,"Photos du lot", np?np+" prise"+(np>1?"s":""):"", true);
+  bp.appendChild(el("p","mini","Un tap par photo attendue : l'appareil s'ouvre avec la bonne étiquette."));
+  bp.appendChild(rangeePhotosAttendues(L));
+  var bAdd=el("button","btn mini","📷 Autre photo"); bAdd.type="button"; bAdd.style.marginTop="8px";
+  bAdd.onclick=function(){ demanderPhoto(L,null); };
+  bp.appendChild(bAdd);
+  var attendues={}; photosAttendues(L).forEach(function(e){ attendues[e]=true; });
+  var autres=(L.photos||[]).filter(function(p){ return !p.q && !attendues[p.et]; });
+  if(autres.length) bp.appendChild(vignettes(L,autres));
+
   var raf=el("div"); raf.style.display="flex"; raf.style.gap="8px"; raf.style.margin="0 0 4px";
   var tout=el("button","btn mini","✓ Tout marquer « dit »"); tout.type="button";
   tout.onclick=function(){
@@ -1326,14 +1556,6 @@ function vueLot(a, L){
   if(L.cle==="clim") blocCalculClim(a);
   if(L.cle==="gaz"||L.cle==="pac") blocCalculEau(a);
 
-  var np=(L.photos||[]).length;
-  var bp=bloc(a,"Photos du lot", np?np+" prise"+(np>1?"s":""):"", true);
-  var bAdd=el("button","btn mini","📷 Prendre une photo"); bAdd.type="button";
-  bAdd.onclick=function(){ demanderPhoto(L,null); };
-  bp.appendChild(bAdd);
-  var sansQ=(L.photos||[]).filter(function(p){ return !p.q; });
-  if(sansQ.length) bp.appendChild(vignettes(L,sansQ));
-
   var sup=el("button","btn d large","Supprimer ce lot"); sup.type="button";
   arme(sup,"Appuyer encore pour supprimer ce lot",function(){
     V.lots = V.lots.filter(function(x){ return x.lid!==L.lid; });
@@ -1351,7 +1573,19 @@ function alertesLot(a,L){
       a.appendChild(x);
     }
     var t=el("div","alerte att");
-    t.textContent="TVA 20 % sur la chaudière et sur tous les travaux accessoires. Certificat de conformité gaz et disconnecteur sont mis d'office au devis.";
+    if(gazHesite(L)){
+      var g2=el("div","alerte att");
+      g2.textContent="Gaz ou PAC — versions à chiffrer : "+(versionsGaz(L).join(", ")||"à cocher ci-dessous")+". Le relevé des pièces et des émetteurs sert aux deux versions. Renseigne la facture de chauffage en € ET en kWh dans l'onglet Maison : c'est ce qui fait le comparatif.";
+      a.appendChild(g2);
+      t.textContent="Version gaz : TVA 20 % sur la chaudière et les travaux accessoires, certificat de conformité et disconnecteur d'office. Version PAC : TVA 5,5 % sous conditions et aides à vérifier à la source au chiffrage.";
+      if(rep(L,"pac_isolcoh")==="Non — devoir de conseil écrit"){
+        var g3=el("div","alerte mal");
+        g3.textContent="Devoir de conseil : l'écrit est obligatoire sur la version PAC quand l'enveloppe ou les émetteurs ne sont pas adaptés (art. 1112-1 Code civil).";
+        a.appendChild(g3);
+      }
+    } else {
+      t.textContent="TVA 20 % sur la chaudière et sur tous les travaux accessoires. Certificat de conformité gaz et disconnecteur sont mis d'office au devis.";
+    }
     a.appendChild(t);
   }
   if(L.cle==="pac"){
@@ -1380,6 +1614,11 @@ function alertesLot(a,L){
     var v=el("div","alerte att");
     v.textContent="TVA 5,5 % sous conditions : A++ mono-split ou A+ multi-split, en SEER et en SCOP, ≤ 12 kW, fluide conforme, appareil connectable.";
     a.appendChild(v);
+    if(climRemplace(L)){
+      var h=el("div","alerte mal");
+      h.textContent="La clim devient le chauffage principal : c'est la puissance CHAUD à température de base qui dimensionne, pas le froid. Les pièces sans unité intérieure doivent être chauffées autrement — voir le bilan en bas du lot.";
+      a.appendChild(h);
+    }
   }
   var aGaz=false;
   V.lots.forEach(function(x){ if(x.cle==="gaz") aGaz=true; });
@@ -1410,7 +1649,12 @@ function rendreQuestion(parent,L,q){
   w.appendChild(es);
 
   if(q.t==="chx"){
-    puces(w,null,q.opts,r.v,function(v){ r.v=v; if(v&&!r.e) r.e="dit"; sauver(); rendre(); });
+    puces(w,null,q.opts,r.v,function(v){ r.v=v; if(v&&!r.e) r.e="dit"; if(q.apres) q.apres(L,v); sauver(); rendre(); });
+  } else if(q.t==="multi"){
+    var vals = r.v ? String(r.v).split(" + ") : [];
+    pucesMulti(w,null,q.opts,vals,function(out){
+      r.v=out.join(" + "); if(out.length&&!r.e) r.e="dit"; if(q.apres) q.apres(L,r.v); sauver(); rendre();
+    });
   } else if(q.t==="long"){
     var ta=el("textarea"); ta.value=r.v||"";
     ta.oninput=function(){ r.v=this.value; sauver(); };
@@ -1428,13 +1672,46 @@ function rendreQuestion(parent,L,q){
   parent.appendChild(w);
 }
 
+function bilanClim(){
+  /* pieces traitees (avec UI) et pieces chauffees sans UI, avec leurs watts */
+  var t={nbui:0, liaison:0, chaud:0, froid:0, traitees:[], sans:[], chaudSans:0, incomplet:false};
+  V.pieces.forEach(function(P){
+    if(P.annexe) return;
+    var c=calcPiece(P), nom=txt(P.nom)||"pièce sans nom";
+    var ok = c.vol && c.dt!==undefined;
+    if(P.clim && P.clim.traite==="Oui"){
+      t.nbui++; var x=nb(P.clim.liaison); if(x!==null) t.liaison+=x;
+      if(ok){ t.chaud+=c.chaud; t.froid+=c.froid; t.traitees.push({nom:nom, chaud:c.chaud, froid:c.froid}); }
+      else { t.incomplet=true; t.traitees.push({nom:nom, chaud:null, froid:null}); }
+    } else {
+      if(ok){ t.chaudSans+=c.chaud; t.sans.push({nom:nom, chaud:c.chaud}); }
+      else t.sans.push({nom:nom, chaud:null});
+    }
+  });
+  return t;
+}
 function blocCalculClim(a){
-  var t=totauxClim();
+  var t=bilanClim(), L=lotClim(), princ=climEstChauffage();
+  var h=[];
+  h.push("<b>Calculé depuis les pièces</b>");
+  h.push(t.nbui+" unité"+(t.nbui>1?"s":"")+" intérieure"+(t.nbui>1?"s":"")+" · liaisons "+fmt(t.liaison,1)+" ml au total");
+  if(!t.nbui) h.push("<span style='color:var(--att)'>Coche « pièce traitée » dans l'onglet Pièces</span>");
+  if(t.traitees.length){
+    h.push("Pièces traitées : chaud ~<b>"+fmt(t.chaud)+" W</b> · froid ~<b>"+fmt(t.froid)+" W</b>"+
+      (t.incomplet?" <span style='color:var(--att)'>(cotes ou année manquantes sur certaines)</span>":""));
+    t.traitees.forEach(function(x){
+      h.push("&nbsp;&nbsp;· "+x.nom+(x.chaud!==null?" — chaud ~"+fmt(x.chaud)+" W · froid ~"+fmt(x.froid)+" W":" — à compléter"));
+    });
+    if(princ) h.push("<b>Chauffage principal — dimensionner en CHAUD à "+fmt(tBase())+" °C</b>, le froid suit.");
+  }
+  if(princ && t.sans.length){
+    h.push("<span style='color:var(--mal)'><b>Sans unité intérieure, à chauffer autrement</b> : "+
+      t.sans.map(function(x){ return x.nom+(x.chaud!==null?" ("+fmt(x.chaud)+" W)":""); }).join(", ")+
+      (t.chaudSans?" — ~"+fmt(t.chaudSans)+" W au total":"")+"</span>");
+    h.push("<span class='mini'>Appoint : "+(L&&rep(L,"appoint")||"à trancher — question « pièces sans unité intérieure » ci-dessus")+"</span>");
+  }
   var c=el("div","calc");
-  c.innerHTML = "<b>Calculé depuis les pièces</b><br>"+
-    t.nbui+" unité"+(t.nbui>1?"s":"")+" intérieure"+(t.nbui>1?"s":"")+
-    " · liaisons "+fmt(t.liaison,1)+" ml au total"+
-    (t.nbui?"":"<br><span style='color:var(--att)'>Coche « pièce traitée » dans l'onglet Pièces</span>");
+  c.innerHTML=h.join("<br>");
   a.appendChild(c);
 }
 function blocCalculEau(a){
@@ -1526,16 +1803,17 @@ function vuePieces(a){
   }
 }
 
+/* Dans l'ordre d'une visite : on entre, on traverse le sejour et la cuisine, puis les chambres. */
 var PIECES_TYPES = [
+  {n:"Entrée / dégagement", niv:"RDC", lg:"", la:""},
   {n:"Séjour", niv:"RDC", lg:"", la:""},
   {n:"Cuisine", niv:"RDC", lg:"", la:""},
-  {n:"Entrée / dégagement", niv:"RDC", lg:"", la:""},
-  {n:"WC", niv:"RDC", lg:"", la:""},
   {n:"Chambre 1", niv:"1er étage", lg:"", la:""},
   {n:"Chambre 2", niv:"1er étage", lg:"", la:""},
   {n:"Chambre 3", niv:"1er étage", lg:"", la:""},
   {n:"Chambre 4", niv:"1er étage", lg:"", la:""},
   {n:"Salle de bain", niv:"1er étage", lg:"", la:""},
+  {n:"WC", niv:"RDC", lg:"", la:""},
   {n:"Bureau", niv:"1er étage", lg:"", la:""},
   {n:"Palier", niv:"1er étage", lg:"", la:""},
   {n:"Buanderie", niv:"RDC", lg:"", la:""},
@@ -1543,11 +1821,17 @@ var PIECES_TYPES = [
   {n:"Cave", niv:"Sous-sol", lg:"", la:""},
   {n:"Combles", niv:"Combles", lg:"", la:""}
 ];
+/* Plain-pied ou appartement (sans niveau declare) : tout au RDC, chambres comprises. */
+function toutAuRdc(){
+  var e=sansAccent(V.maison.etages||"");
+  if(e==="Plain-pied") return true;
+  return V.maison.mitoyen==="Appartement" && !/^R\+/.test(e);
+}
 function ouvrirPiecesTypes(){
   var dt=$("#dlgTexte"), ct=$("#corpsTexte");
   dt.querySelector(".dlg-tete").textContent="Les pièces courantes";
   ct.innerHTML="";
-  ct.appendChild(el("p","mini","Coche celles qui existent : elles sont créées d'un coup avec leur niveau. Les cotes se remplissent ensuite pièce par pièce."));
+  ct.appendChild(el("p","mini","Coche celles qui existent : elles sont créées d'un coup avec leur niveau"+(toutAuRdc()?" — tout au RDC, plain-pied ou appartement":"")+". Les cotes se remplissent ensuite pièce par pièce."));
   var choix={};
   var z=el("div"); z.style.display="flex"; z.style.flexWrap="wrap"; z.style.gap="6px";
   PIECES_TYPES.forEach(function(P){
@@ -1571,6 +1855,7 @@ function ouvrirPiecesTypes(){
       var niv=P.niv, dispo=niveauxDuBati(), ok=false;
       dispo.forEach(function(k){ if(NIVEAUX[k]===niv) ok=true; });
       if(!ok) niv="RDC";
+      if(toutAuRdc() && niv==="1er étage") niv="RDC";
       V.pieces.push({pid:idUnique("p"), nom:P.n, lg:"", la:"", surf:"",
         hsp: last?last.hsp:"2,5", niveau:niv, circuit: last?last.circuit:"",
         murs:[], rads:[], clim:{traite:"",empl:"",liaison:"",mode:""}, photos:[], croquis:[]});
@@ -1604,6 +1889,17 @@ function murs4(P){
     {id:idUnique("m"), nom:"Mur 4", auto:"la", lg:"", type:"Cloison",   o:"", vit:"", n:1}
   ];
 }
+/* v3.6 — surface vitree d'un mur : la somme des ouvrants (largeur x hauteur en metres)
+   quand il y en a, sinon la case m2 saisie a la main. */
+function vitreeMur(M){
+  var o=M.ouv||[], t=0, n=0;
+  for(var i=0;i<o.length;i++){
+    var l=nb(o[i].l), h=nb(o[i].h);
+    if(l!==null && h!==null){ t+=l*h; n++; }
+  }
+  if(n) return t;
+  return nb(M.vit)||0;
+}
 function longueurMur(P,M){
   var v=nb(M.lg);
   if(v!==null) return v;
@@ -1630,9 +1926,22 @@ function cartePiece(a,P,idx){
 
   champ(w,"Nom de la pièce", P.nom, function(v){ P.nom=v; });
   var r=el("div","rang"); w.appendChild(r);
-  champ(r,"Longueur (m)", P.lg, function(v){ P.lg=v; majCalculs(); }, "number");
-  champ(r,"Largeur (m)", P.la, function(v){ P.la=v; majCalculs(); }, "number");
-  champ(r,"Hauteur sous plafond (m)", P.hsp, function(v){ P.hsp=v; majCalculs(); });
+  var iL=champ(r,"Longueur (m)", P.lg, function(v){ P.lg=v; majCalculs(); }, "number", "4,9 ou 4,9 x 2,7");
+  var il=champ(r,"Largeur (m)", P.la, function(v){ P.la=v; majCalculs(); }, "number");
+  var iH=champ(r,"Hauteur sous plafond (m)", P.hsp, function(v){ P.hsp=v; majCalculs(); }, "number");
+  iL.addEventListener("change", function(){
+    var c=eclaterCotes(this.value);
+    if(!c) return;
+    P.lg=c[0]; P.la=c[1]; if(c.length>2) P.hsp=c[2];
+    sauverTout(); rendre();
+    toast("Cotes réparties : "+c.join(" × ")+" m","ok");
+  });
+  chainer([iL,il,iH]);
+  /* F — les cotes dictees au Plaud : on note l'heure, le chiffrage sait ou chercher */
+  var bpl=el("button","et"+(P.plaud?" on-ok":""), P.plaud ? "✓ Cotes dictées au Plaud vers "+heureCourte(P.plaud) : "🎙 Cotes dictées au Plaud");
+  bpl.type="button"; bpl.style.marginTop="8px";
+  bpl.onclick=function(){ P.plaud = P.plaud ? "" : new Date().toISOString(); sauverTout(); rendre(); };
+  w.appendChild(bpl);
   var s=surfacePiece(P);
   if(s!==null && !txt(P.surf)) w.appendChild(el("p","mini","Surface calculée : "+fmt(s,1)+" m²"));
   if(nb(P.lg)===null || nb(P.la)===null || txt(P.surf))
@@ -1646,6 +1955,16 @@ function cartePiece(a,P,idx){
   }
   puces(w,"Niveau",libn,P.niveau,function(v){ P.niveau=v; sauver(); majCalculs(); rendre(); });
 
+  /* Un balcon, une terrasse ou un garage se voient sur le plan mais ne se chauffent pas :
+     comptes en surface, jamais en watts. Propose d'office d'apres le nom, decochable. */
+  if(P.annexe===undefined && /balcon|terrasse|garage|cave|cellier|abri|grenier|remise|v[e\u00e9]randa/i.test(txt(P.nom))){ P.annexe=true; sauver(); }
+  var bAx=el("button","et"+(P.annexe?" on-ok":""),
+     P.annexe ? "✓ Annexe non chauffée — sur le plan, hors calcul" : "Annexe non chauffée (balcon, terrasse, garage…)");
+  bAx.type="button"; bAx.style.width="100%"; bAx.style.marginTop="8px";
+  bAx.onclick=function(){ P.annexe=!P.annexe; sauverTout(); rendre(); };
+  w.appendChild(bAx);
+
+  if(!P.annexe){
   var nMurs=0; P.murs.forEach(function(M){ nMurs += (M.n||1); });
   var dm=el("details","bloc"); memoDetails(dm, "piece|"+P.pid+"|murs");
   var sm=el("summary",null,"Murs et ouvrants");
@@ -1673,15 +1992,32 @@ function cartePiece(a,P,idx){
           function(v){ M.type=v; sauver(); rendre(); });
     var rm=el("div","rang"); mw.appendChild(rm);
     champ(rm,"Longueur si différente (m)", M.lg, function(v){ M.lg=v; majCalculs(); }, "number");
-    champ(rm,"Surface vitrée (m²)", M.vit, function(v){ M.vit=v; majCalculs(); }, "number");
+    M.ouv=M.ouv||[];
+    if(!M.ouv.length)
+      champ(rm,"Surface vitrée (m²)", M.vit, function(v){ M.vit=v; majCalculs(); }, "number");
+    /* J — les ouvrants en largeur x hauteur : l'appli fait la surface, pas la calculatrice */
+    M.ouv.forEach(function(O,io){
+      var ro=el("div","ouv"); mw.appendChild(ro);
+      var iol=champ(ro,"Ouvrant "+(io+1)+" — largeur (m)", O.l, function(v){ O.l=v; majCalculs(); }, "number");
+      var ioh=champ(ro,"Hauteur (m)", O.h, function(v){ O.h=v; majCalculs(); }, "number");
+      chainer([iol,ioh]);
+      var l=nb(O.l), hh=nb(O.h);
+      ro.appendChild(el("span","res", (l!==null&&hh!==null) ? "= "+fmt(l*hh,2)+" m²" : "= ?"));
+      var so=el("button","btn mini d","✕"); so.type="button";
+      so.onclick=function(){ M.ouv.splice(io,1); sauverTout(); rendre(); };
+      ro.appendChild(so);
+    });
+    var ao=el("button","btn mini","＋ Ouvrant (largeur × hauteur)"); ao.type="button"; ao.style.marginTop="6px";
+    ao.onclick=function(){ M.ouv.push({l:"",h:""}); sauverTout(); rendre(); };
+    mw.appendChild(ao);
     if(M.type==="Extérieur")
       puces(mw,"Orientation (facultatif)",["Nord","Est","Sud","Ouest"],M.o,
             function(v){ M.o=v; sauver(); rendre(); });
     var h=nb(P.hsp), brut=(lgm!==null&&h!==null)?lgm*h:null;
     if(brut!==null){
-      var vit=nb(M.vit)||0;
+      var vit=vitreeMur(M);
       mw.appendChild(el("p","mini","Surface pleine : "+fmt(Math.max(0,brut-vit),2)+" m²"+
-        (vit?" (brute "+fmt(brut,2)+" − vitrée "+fmt(vit,2)+")":"")));
+        (vit?" (brute "+fmt(brut,2)+" − vitrée "+fmt(vit,2)+(M.ouv.length?", "+M.ouv.length+" ouvrant"+(M.ouv.length>1?"s":""):"")+")":"")));
     }
     cm.appendChild(mw);
   });
@@ -1771,6 +2107,7 @@ function cartePiece(a,P,idx){
     }
     w.appendChild(dc);
   }
+  }
 
   P.croquis=P.croquis||[];
   var zc=el("div"); zc.style.marginTop="8px";
@@ -1806,6 +2143,11 @@ function cartePiece(a,P,idx){
   w.appendChild(zp);
 
   var calc=calcPiece(P);
+  if(P.annexe){
+    var ca=el("div","calc");
+    ca.innerHTML="<b>Annexe non chauffée</b> · <span class='mini'>sur le plan avec sa surface, hors volume et hors puissances</span>";
+    w.appendChild(ca); a.appendChild(w); return;
+  }
   if(calc.vol && calc.dt===undefined){
     var cg=el("div","calc");
     cg.innerHTML="<b>"+fmt(calc.vol,1)+" m³</b> · <span style='color:var(--att)'>renseigne l'année de construction dans l'onglet Maison pour obtenir les puissances</span>";
@@ -1904,6 +2246,7 @@ function surfacePac(){
   if(m!==null) return {s:m, manuel:true, n:0};
   var s=0, n=0;
   V.pieces.forEach(function(P){
+    if(P.annexe) return;
     if(sansAccent(P.circuit)==="Non chauffee par la PAC") return;
     var sp=surfacePiece(P);
     if(sp===null) return;
@@ -1979,6 +2322,7 @@ function ratioFroid(){
   return 40;
 }
 function calcPiece(P){
+  if(P.annexe) return {vol:0, annexe:true};
   var s=surfacePiece(P), h=nb(P.hsp);
   if(s===null||h===null) return {vol:0};
   var vol=s*h, G=coefG();
@@ -2172,7 +2516,8 @@ function vueEnvoi(a){
   a.appendChild(el("h2",null,"Vérifier et envoyer"));
   a.appendChild(el("p","aide","Rien n'est obligatoire ici. Ce qui suit est ce que je regarderais avant de partir — tu envoies quand tu veux, même à moitié rempli."));
   var pb=[];
-  if(!txt(V.client.nom)) pb.push({t:"att", m:"Le nom du client n'est pas renseigné — la fiche partira sous « sans nom »."});
+  if(!txt(V.client.nom) && nomClient()) pb.push({t:"att", m:"Le nom du client est vide : la fiche partira sous « "+nomClient()+" » (société Axonaut)."});
+  else if(!nomClient()) pb.push({t:"att", m:"Le nom du client n'est pas renseigné — la fiche partira sous « sans nom »."});
   if(!V.lots.length) pb.push({t:"att", m:"Aucun lot n'a été coché."});
   if(V.aides.souhaite && !txt(V.client.email))
     pb.push({t:"att", m:"Le client veut des aides mais son e-mail manque : la liste des pièces ne pourra pas lui partir."});
@@ -2217,7 +2562,7 @@ function vueEnvoi(a){
     });
   }
   var sh=nb(V.maison.surface), sp=0, npc=0;
-  V.pieces.forEach(function(P){ var x=surfacePiece(P); if(x!==null){ sp+=x; npc++; } });
+  V.pieces.forEach(function(P){ if(P.annexe) return; var x=surfacePiece(P); if(x!==null){ sp+=x; npc++; } });
   if(sh!==null && npc>=2 && sp>0){
     var ec=Math.abs(sp-sh)/sh;
     if(ec>0.2){
@@ -2335,17 +2680,59 @@ function ouvrirReprise(){
 function postesObligatoires(){
   var o=[], cles={};
   V.lots.forEach(function(L){ cles[L.cle]=true; if(L.nom) cles[L.nom.toLowerCase()]=true; });
-  if(cles["gaz"]) o.push("Certificat de conformité gaz",
-                         "Disconnecteur de remplissage",
-                         "Traitement de l'eau du circuit (Sentinel X100)",
-                         "Dépose et évacuation de l'ancienne chaudière");
-  if(cles["pac"]) o.push("Traitement de l'eau", "Filtre à boue sur retour", "Disconnecteur de remplissage",
-                         "Mention RGE QualiPAC sur le devis",
-                         "Note de dimensionnement (condition du taux de 5,5 %)",
-                         "N° d'agrément ADEME du modèle — à porter sur la facture et sur l'attestation sur l'honneur");
+  var GAZ=["Certificat de conformité gaz",
+           "Disconnecteur de remplissage",
+           "Traitement de l'eau du circuit (Sentinel X100)",
+           "Dépose et évacuation de l'ancienne chaudière"];
+  var PAC=["Traitement de l'eau", "Filtre à boue sur retour", "Disconnecteur de remplissage",
+           "Mention RGE QualiPAC sur le devis",
+           "Note de dimensionnement (condition du taux de 5,5 %)",
+           "N° d'agrément ADEME du modèle — à porter sur la facture et sur l'attestation sur l'honneur"];
+  var LH=lotGazHesite();
+  if(LH){
+    var vh=versionsGaz(LH);
+    o.push("GAZ OU PAC — À TRANCHER : un devis par version ("+(vh.join(", ")||"versions à cocher dans le lot")+"), même relevé, et un comparatif interne avant tout Axonaut");
+    if(!vh.length || vh.indexOf("Chaudière gaz")>=0) GAZ.forEach(function(x){ o.push("Version gaz — "+x); });
+    if(gazVersionPac(LH)) PAC.forEach(function(x){ o.push("Version PAC — "+x); });
+    if(vh.indexOf("PAC hybride")>=0) o.push("Version hybride — chaudière gaz + PAC : reprendre les deux listes");
+    var bl=rep(LH,"pac_bloque");
+    if(bl && bl!=="Rien") o.push("Ce qui bloque la PAC sur place : "+bl+" — à lever ou à écrire en réserve sur la version PAC");
+    if(rep(LH,"pac_isolcoh")==="Non — devoir de conseil écrit") o.push("Devoir de conseil écrit sur la version PAC (art. 1112-1 Code civil)");
+    if(txt(rep(LH,"pref"))) o.push("Préférence a priori du client : "+rep(LH,"pref"));
+  } else {
+    if(cles["gaz"]) GAZ.forEach(function(x){ o.push(x); });
+    if(cles["pac"]) PAC.forEach(function(x){ o.push(x); });
+  }
   if(cles["clim"]) o.push("Mention de l'attestation de capacité fluides CF00574",
                           "Goulotte de finition sur les liaisons apparentes",
                           "Contrat d'entretien proposé en option");
+  if(climEstChauffage()){
+    var lc=lotClim(), ga=rep(lc,"gaz_apres"), cd=rep(lc,"conduit_dep"), rd=rep(lc,"rad_dep"),
+        ec=rep(lc,"ecs_apres"), ap=rep(lc,"appoint"), ab=rep(lc,"abonnement"), bc=bilanClim();
+    var sans=bc.sans.map(function(x){ return x.nom; }).join(", ");
+    o.push("CLIM EN CHAUFFAGE PRINCIPAL — dimensionner en chaud à "+fmt(tBase())+" °C, le vérifier sur la puissance calorifique à -7 °C de Select Clim");
+    o.push("Dépose et évacuation du générateur déposé"+(txt(rep(lc,"gen_dep"))?" ("+rep(lc,"gen_dep")+")":""));
+    if(/^Bouchonn/.test(ga)) o.push("Bouchonnage de l'alimentation gaz — ligne dédiée ; résiliation du contrat et dépose du compteur : démarches du client, à écrire");
+    else if(/^Conserv/.test(ga)) o.push("Gaz conservé pour la cuisson — pas de bouchonnage, essai d'étanchéité après dépose de la chaudière");
+    else if(!ga || /^À voir/.test(ga)) o.push("Sort de l'alimentation gaz : À TRANCHER avant devis (bouchonnage ou conservation)");
+    if(cd==="Condamné") o.push("Condamnation du conduit de fumée — obturation et ventilation du conduit");
+    if(/^Déposés et évacués/.test(rd)) o.push("Dépose et évacuation des radiateurs et de la tuyauterie apparente — ligne dédiée");
+    else if(/^Déposés, tuyauterie/.test(rd)) o.push("Dépose des radiateurs, tuyauterie laissée en place et bouchonnée — ligne dédiée");
+    else if(/^Le client/.test(rd)) o.push("Dépose des radiateurs à la charge du client (lui-même ou une entreprise qu'il mandate) — à écrire dans les exclusions");
+    else o.push("Sort des radiateurs : À TRANCHER avant devis");
+    if(/^Chauffe-eau thermodynamique/.test(ec)) o.push("Chauffe-eau thermodynamique — section à part, TVA rénovation énergétique à confirmer au bureau"+(txt(rep(lc,"nbpers"))?" — "+rep(lc,"nbpers")+" occupant(s)":""));
+    else if(/^Chauffe-eau électrique/.test(ec)) o.push("Chauffe-eau électrique — section à part, taux de TVA à confirmer au bureau"+(txt(rep(lc,"nbpers"))?" — "+rep(lc,"nbpers")+" occupant(s)":""));
+    else if(!ec || /^À voir/.test(ec)) o.push("Eau chaude sanitaire après dépose de la chaudière : À TRANCHER avant devis");
+    if(bc.sans.length){
+      if(/^Appoint/.test(ap)) o.push("Chauffage d'appoint électrique dans les pièces sans unité intérieure : "+sans+(bc.chaudSans?" (~"+fmt(bc.chaudSans)+" W au total)":""));
+      else if(/^Le client/.test(ap)) o.push("Pièces sans unité intérieure chauffées par le client ("+sans+") — à écrire dans les exclusions");
+      else if(/^Aucun/.test(ap)) o.push("Pièces laissées sans chauffage ("+sans+") — devoir de conseil écrit au devis");
+      else o.push("Chauffage des pièces sans unité intérieure ("+sans+") : À TRANCHER avant devis");
+    }
+    if(ab==="À augmenter") o.push("Augmentation de l'abonnement électrique à la charge du client — à écrire au devis");
+    else if(!ab || ab==="À vérifier") o.push("Abonnement électrique avec la clim en chauffage : à vérifier (calibre dans l'onglet Maison)");
+    o.push("TVA de la dépose, du bouchonnage et de l'appoint dans une opération clim : à trancher au bureau (règle des travaux accessoires)");
+  }
   if(cles["plancher chauffant"]) o.push("Traitement de l'eau", "Étude thermique / calepinage");
   if(cles["salle de bain / sanitaire"]||cles["sdb"]) o.push("Sous-traitance carrelage (ligne dédiée)",
                          "Ventilation de colonne de chute si évacuation créée",
@@ -2431,7 +2818,35 @@ function prendrePhoto(cible, etiquette, qk){
   i.click();
 }
 function demanderPhoto(L,qk){
-  choisirEtiquette(ETIQ[L.cle]||ETIQ.autre, function(e){ prendrePhoto(L,e,qk); });
+  choisirEtiquette(etiquettesLot(L), function(e){ prendrePhoto(L,e,qk); });
+}
+/* v3.6 — rangee des photos attendues : un tap ouvre l'appareil avec la bonne etiquette,
+   la vignette remplace le bouton une fois la photo prise. */
+var PHOTO_ICONES = {"Plaque":"🏷️","Compteur":"🔢","Tableau":"⚡","Conduit":"🧱","Façade":"🏠","groupe":"❄️","unité":"📍","Combles":"🪜","Cuve":"🛢️","Local":"🚪","Passage":"🚶","Caisson":"📦","Sortie":"🏠","Arrivée":"🚰","Évacuation":"🕳️","Vue":"👁️","Chaudière":"🔥","Existant":"📷"};
+function iconePhoto(e){
+  for(var k in PHOTO_ICONES) if(PHOTO_ICONES.hasOwnProperty(k) && e.indexOf(k)>=0) return PHOTO_ICONES[k];
+  return "📷";
+}
+function rangeePhotosAttendues(L){
+  var w=el("div","photos"), att=photosAttendues(L), ph=L.photos||[];
+  att.forEach(function(e){
+    var prises=ph.filter(function(p){ return p.et===e; });
+    if(prises.length){
+      var p=prises[0], v=el("div","ph att");
+      var im=el("img"); im.src=p.data; im.alt=e; v.appendChild(im);
+      v.appendChild(el("span","lg",e+(prises.length>1?" ×"+prises.length:"")));
+      var b=el("button",null,"✕"); b.type="button";
+      b.onclick=function(){ L.photos=L.photos.filter(function(x){ return x.id!==p.id; }); sauverTout(); rendre(); };
+      v.appendChild(b); w.appendChild(v);
+    } else {
+      var bt=el("button","phatt"); bt.type="button";
+      bt.appendChild(el("span","ic",iconePhoto(e)));
+      bt.appendChild(document.createTextNode(e));
+      bt.onclick=function(){ prendrePhoto(L,e,null); };
+      w.appendChild(bt);
+    }
+  });
+  return w;
 }
 function choisirEtiquette(opts, fn){
   var d=$("#dlgLots"), c=$("#corpsLots");
@@ -2556,19 +2971,25 @@ function payload(statut){
                      : r.e==="np" ? "sans objet" : "noté", valeur: propre(r.v)};
     });
     return {lot:L.nom||defLot(L.cle).label, cle:L.cle, reponses:r2,
+      a_trancher: gazHesite(L) || undefined,
+      versions_a_chiffrer: gazHesite(L) ? versionsGaz(L) : undefined,
       photos:(L.photos||[]).map(function(p){ return {etiquette:p.et, question:p.q}; })};
   });
   var pieces = V.pieces.map(function(P,i){
     var c=calcPiece(P);
     return {numero:i+1, nom:propre(P.nom), longueur_m:nb(P.lg), largeur_m:nb(P.la),
       surface_m2:surfacePiece(P), hsp_m:nb(P.hsp), niveau:propre(P.niveau), circuit:P.circuit||null,
+      annexe_non_chauffee: !!P.annexe,
+      dicte_plaud: P.plaud||null,
       volume_m3: c.vol?Math.round(c.vol*10)/10:null,
       murs: P.murs.map(function(M){
-        var lgm=longueurMur(P,M), h=nb(P.hsp), vit=nb(M.vit)||0;
+        var lgm=longueurMur(P,M), h=nb(P.hsp), vit=vitreeMur(M);
         var brut=(lgm!==null&&h!==null)?lgm*h:null;
         return {nom:M.nom, nombre:M.n||1, type:M.type, orientation:M.o||null, longueur_m:lgm,
           surface_brute_m2: brut!==null?Math.round(brut*100)/100:null,
-          surface_vitree_m2: vit||null,
+          surface_vitree_m2: vit?Math.round(vit*100)/100:null,
+          ouvrants: (M.ouv||[]).map(function(O){ var l=nb(O.l), hh=nb(O.h);
+            return {largeur_m:l, hauteur_m:hh, surface_m2:(l!==null&&hh!==null)?Math.round(l*hh*100)/100:null}; }),
           surface_pleine_m2: brut!==null?Math.round(Math.max(0,brut-vit)*100)/100:null};
       }),
       emetteurs: P.rads.map(function(R){
@@ -2593,7 +3014,7 @@ function payload(statut){
     technicien: cfg.technicien||"Rémi KATA",
     opportunite:{id:V.opp_id, titre:propre(V.opp_titre), etape:V.opp_etape},
     societe:{id:V.societe_id, nom:propre(V.societe)},
-    client:{nom:propre(V.client.nom)||"sans nom", telephone:propre(V.client.tel), email:propre(V.client.email),
+    client:{nom:nomClient()||"sans nom", telephone:propre(V.client.tel), email:propre(V.client.email),
       adresse:propre(V.client.adresse), commune:propre(V.client.ville),
       type_logement:propre(V.client.logement), statut:propre(V.client.statut),
       annee_construction:nb(V.client.annee), objet:propre(V.client.objet),
@@ -2612,7 +3033,8 @@ function payload(statut){
       temperature_base_C:tBase(), altitude_m:nb(V.maison.alt), temperature_confort_C:tConfort(),
       regime_vise:V.maison.regime, abonnement_electrique:V.maison.abonnement,
       echeance_projet:V.maison.echeance, puissance_chaudiere_deposee_W:nb(V.maison.chaudiere_w),
-      facture_annuelle_EUR:nb(V.maison.facture_montant), energie_actuelle:V.maison.facture_energie},
+      facture_annuelle_EUR:nb(V.maison.facture_montant), consommation_annuelle_kWh:nb(V.maison.facture_kwh),
+      energie_actuelle:V.maison.facture_energie},
     aides:{souhaitees:!!V.aides.souhaite, personnes_foyer:nb(V.aides.personnes),
       revenu_fiscal_reference:nb(V.aides.rfr), note:propre(V.aides.note),
       envoyer_liste_pieces: !!(V.aides.souhaite && txt(V.client.email))},
@@ -2648,6 +3070,14 @@ function payload(statut){
       debit_m3h: t.vol?Math.round(t.debit):null,
       unites_interieures: tc.nbui||null,
       liaisons_totales_ml: tc.liaison||null,
+      clim: aLotClim() ? (function(){ var b=bilanClim(), lc=lotClim();
+        return {chauffage_principal: climEstChauffage(),
+          chaud_pieces_traitees_W: b.traitees.length?Math.round(b.chaud):null,
+          froid_pieces_traitees_W: b.traitees.length?Math.round(b.froid):null,
+          pieces_traitees: b.traitees.map(function(x){ return {nom:x.nom, chaud_W:x.chaud!==null?Math.round(x.chaud):null, froid_W:x.froid!==null?Math.round(x.froid):null}; }),
+          pieces_sans_ui: b.sans.map(function(x){ return {nom:x.nom, chaud_W:x.chaud!==null?Math.round(x.chaud):null}; }),
+          chaud_pieces_sans_ui_W: b.sans.length?Math.round(b.chaudSans):null,
+          appoint: lc ? (rep(lc,"appoint")||null) : null}; })() : null,
       volume_eau_circuit_L: Math.round(ve.total),
       bidons_inhibiteur: Math.max(1,Math.ceil(ve.total/100)),
       vase_expansion: (function(){ var x=vaseExp();
@@ -2675,7 +3105,7 @@ function payload(statut){
         echelle_m:r.echelle, niveaux:r.niveaux,
         liaisons_ml:r.liaisons_m, liaisons_vertical_ml:r.liaisons_vertical_m,
         percements:r.percements,
-        symboles:r.symboles, avec_photo_de_fond:!!x.C.photo};
+        symboles:r.symboles, reperes:r.reperes, avec_photo_de_fond:!!x.C.photo};
     }),
     notes:{ce_que_je_retiens:propre(V.notes.retiens), reserves:propre(V.notes.reserves)},
     points_a_confirmer: pointsOuverts(),
@@ -2686,6 +3116,31 @@ function payload(statut){
   };
 }
 /* Les photos qu'on regrette de ne pas avoir prises une fois au bureau. */
+var PHOTOS_CLES_CLIM_REMPLACE = ["Plaque du générateur déposé","Compteur gaz"];
+var PHOTOS_CLES_GAZ_PAC = ["Emplacement groupe"];
+function extrasPhotos(L){
+  if(L.cle==="clim" && climRemplace(L)) return PHOTOS_CLES_CLIM_REMPLACE;
+  if(gazHesite(L)) return PHOTOS_CLES_GAZ_PAC;
+  return [];
+}
+function photosCles(L){
+  return (PHOTOS_CLES[L.cle]||[]).concat(extrasPhotos(L));
+}
+function etiquettesLot(L){
+  var a=(ETIQ[L.cle]||ETIQ.autre).slice(), x=extrasPhotos(L);
+  if(x.length){
+    var i=a.indexOf("Autre"); if(i<0) i=a.length;
+    a.splice.apply(a,[i,0].concat(x));
+  }
+  return a;
+}
+/* v3.6 — les photos attendues du lot, cles d'abord, un tap chacune */
+function photosAttendues(L){
+  var out=photosCles(L), vus={};
+  out.forEach(function(e){ vus[e]=true; });
+  etiquettesLot(L).forEach(function(e){ if(e!=="Autre" && !vus[e]){ out.push(e); vus[e]=true; } });
+  return out;
+}
 var PHOTOS_CLES = {
   gaz:   ["Plaque signalétique","Conduit / ventouse"],
   fioul: ["Plaque signalétique","Cuve"],
@@ -2700,8 +3155,8 @@ var PHOTOS_CLES = {
 function photosManquantes(){
   var out=[];
   V.lots.forEach(function(L){
-    var att=PHOTOS_CLES[L.cle];
-    if(!att) return;
+    var att=photosCles(L);
+    if(!att.length) return;
     var prises={};
     (L.photos||[]).forEach(function(p){ prises[p.et]=true; });
     var abs=[];
@@ -2728,6 +3183,9 @@ function pointsOuverts(){
       var r=L.rep[q.k];
       if(r && r.e==="voir") o.push((L.nom||defLot(L.cle).court)+" — "+q.l+(txt(r.v)?" : "+r.v:""));
     });
+  });
+  V.pieces.forEach(function(P,i){
+    if(P.plaud) o.push("Pièce "+(i+1)+(txt(P.nom)?" "+P.nom:"")+" — cotes dictées au Plaud vers "+heureCourte(P.plaud)+", à reprendre dans l'enregistrement (±10 min)");
   });
   return o;
 }
@@ -2773,7 +3231,7 @@ function promptSelectClim(){
     traitees.forEach(function(P){
       P.murs.forEach(function(M){
         if(M.type!=="Extérieur") return;
-        var lgm=longueurMur(P,M), h=nb(P.hsp), vit=nb(M.vit)||0;
+        var lgm=longueurMur(P,M), h=nb(P.hsp), vit=vitreeMur(M);
         var brut=(lgm!==null&&h!==null)?lgm*h:null;
         L.push("   - "+(txt(P.nom)||"pièce")+" · "+(M.o||"orientation ?")+
           " · vitrée "+(vit?fmt(vit,2):"0")+" m² · pleine "+
@@ -2802,6 +3260,7 @@ function promptSelectClim(){
 function promptProjipack(){
   var L=[], lot=null;
   V.lots.forEach(function(x){ if(x.cle==="pac") lot=x; });
+  var LH = lot ? null : lotGazHesite();
   var t=totaux(), ve=volumeEau(), N=besoinNdd()?ndd():null;
   L.push("PROJIPACK (Atlantic) \u2014 SAISIE D'UN PROJET");
   L.push("Tu remplis Projipack \u00e0 ma place avec les donn\u00e9es ci-dessous, dans l'ordre indiqu\u00e9.");
@@ -2837,8 +3296,9 @@ function promptProjipack(){
   L.push("Abonnement \u00e9lectrique : "+(V.maison.abonnement||"\u00e0 pr\u00e9ciser"));
   if(txt(V.maison.chaudiere_w))
     L.push("Rel\u00e8ve de chaudi\u00e8re : "+V.maison.chaudiere_w+" W (le logiciel demande des WATTS, pas des kW)");
-  if(txt(V.maison.facture_montant))
-    L.push("Facture actuelle : "+V.maison.facture_montant+" \u20ac/an en "+(V.maison.facture_energie||"?"));
+  if(txt(V.maison.facture_montant)||txt(V.maison.facture_kwh))
+    L.push("Facture actuelle : "+(txt(V.maison.facture_montant)?V.maison.facture_montant+" \u20ac/an":"montant ?")+
+           (txt(V.maison.facture_kwh)?" \u00b7 "+V.maison.facture_kwh+" kWh/an":"")+" en "+(V.maison.facture_energie||"?"));
   L.push("");
   L.push("M\u00e9thode de d\u00e9perditions : si le champ \u00ab D\u00e9perditions connues \u00bb existe, c'est le plus rapide.");
   if(t.vol) L.push("   D\u00e9perditions \u00e0 saisir : "+fmt(t.dt)+" W (calcul de l'appli, coefficient G "+fmt(coefG(),2)+").");
@@ -2867,6 +3327,11 @@ function promptProjipack(){
     L.push("G\u00e9n\u00e9rateur d\u00e9pos\u00e9 : "+(rep(lot,"remplace")||"?"));
     L.push("Production ECS : "+(rep(lot,"ecs")||"?")+" \u00b7 occupants : "+(rep(lot,"nbpers")||"?"));
     L.push("Ballon tampon : "+(rep(lot,"ballon")||"?")+" \u00b7 Alimentation : "+(rep(lot,"elec")||"?"));
+  } else if(LH){
+    L.push("VERSION PAC d'un chantier \u00ab gaz ou PAC \u00bb non tranch\u00e9 \u2014 versions \u00e0 chiffrer : "+(versionsGaz(LH).join(", ")||"?"));
+    L.push("G\u00e9n\u00e9rateur d\u00e9pos\u00e9 : chaudi\u00e8re gaz "+(rep(LH,"marque")||"?")+(rep(LH,"condens")?" \u00b7 condensation : "+rep(LH,"condens"):""));
+    L.push("Production ECS (version PAC) : "+(rep(LH,"pac_ecs")||"?")+" \u00b7 occupants : "+(rep(LH,"nbpers")||"?"));
+    L.push("Alimentation : "+(rep(LH,"pac_elec")||"?")+(rep(LH,"pac_bloque")?" \u00b7 ce qui bloque sur place : "+rep(LH,"pac_bloque"):""));
   }
   L.push("Volume d'eau du circuit estim\u00e9 : "+fmt(ve.total)+" L ("+ve.detail+")");
   L.push("");
@@ -2951,6 +3416,8 @@ function resumeTexte(){
   ligne("Tableau électrique", V.maison.tableau);
   ligne("Amiante", V.maison.amiante);
   ligne("Distance depuis Raville", V.maison.km ? V.maison.km+" km" : "");
+  ligne("Chauffage actuel", [V.maison.facture_energie, V.maison.facture_montant ? V.maison.facture_montant+" €/an" : "",
+        V.maison.facture_kwh ? V.maison.facture_kwh+" kWh/an" : "", V.maison.abonnement ? "abonnement "+V.maison.abonnement : ""].filter(Boolean).join(" · "));
 
   V.lots.forEach(function(Lo){
     L.push("");
@@ -2971,15 +3438,20 @@ function resumeTexte(){
     L.push("-- PIÈCES --");
     V.pieces.forEach(function(P,i){
       var c=calcPiece(P), s=surfacePiece(P);
-      var t=(i+1)+". "+(txt(P.nom)||"sans nom")+" — "+(s!==null?fmt(s,1):"?")+" m² × "+(txt(P.hsp)||"?")+" m";
+      var t=(i+1)+". "+(txt(P.nom)||"sans nom")+" — "+(s!==null?fmt(s,1):"?")+" m²";
+      if(P.annexe){ L.push(t+" — annexe non chauffée, hors calcul"); return; }
+      t+=" × "+(txt(P.hsp)||"?")+" m";
       if(c.vol) t+=" = "+fmt(c.vol,1)+" m³ — chaud ~"+fmt(c.chaud)+" W, froid ~"+fmt(c.froid)+" W";
+      if(P.plaud) t+=" — cotes dictées au Plaud vers "+heureCourte(P.plaud)+" (chercher ±10 min)";
       L.push(t);
       P.murs.forEach(function(M){
-        var lgm=longueurMur(P,M), h=nb(P.hsp), vit=nb(M.vit)||0;
+        var lgm=longueurMur(P,M), h=nb(P.hsp), vit=vitreeMur(M);
         var brut=(lgm!==null&&h!==null)?lgm*h:null;
         if(brut===null && !vit) return;
+        var ouvr=(M.ouv||[]).filter(function(O){ return nb(O.l)!==null && nb(O.h)!==null; })
+          .map(function(O){ return fmt(nb(O.l),2)+"×"+fmt(nb(O.h),2); });
         L.push("   "+M.nom+((M.n||1)>1?" ×"+M.n:"")+" ("+(M.type||"?")+(M.o?", "+M.o:"")+") : pleine "+
-          (brut!==null?fmt(Math.max(0,brut-vit),2):"?")+" m²"+(vit?", vitrée "+fmt(vit,2)+" m²":""));
+          (brut!==null?fmt(Math.max(0,brut-vit),2):"?")+" m²"+(vit?", vitrée "+fmt(vit,2)+" m²"+(ouvr.length?" ("+ouvr.join(", ")+")":""):""));
       });
       P.rads.forEach(function(R){
         L.push("   émetteur : "+(R.type||"?")+(txt(R.lg)?" "+R.lg+"×"+(txt(R.h)||"?")+" cm":"")+
@@ -2994,6 +3466,16 @@ function resumeTexte(){
     L.push("TOTAL : "+fmt(t2.vol,1)+" m³ — déperditions ~"+fmt(t2.dt)+" W — chaud ~"+fmt(t2.chaud)+
       " W — froid ~"+fmt(t2.froid)+" W — débit ~"+fmt(t2.debit)+" m³/h");
     if(tc.nbui) L.push("CLIM : "+tc.nbui+" unité(s) intérieure(s), "+fmt(tc.liaison,1)+" ml de liaisons au total");
+    if(aLotClim()){
+      var bc=bilanClim();
+      if(bc.traitees.length) L.push("CLIM pièces traitées : chaud ~"+fmt(bc.chaud)+" W, froid ~"+fmt(bc.froid)+" W"+
+        (climEstChauffage()?" — CHAUFFAGE PRINCIPAL : dimensionner en chaud à "+fmt(tBase())+" °C":""));
+      if(climEstChauffage() && bc.sans.length){
+        var lc=lotClim();
+        L.push("CLIM pièces sans unité intérieure : "+bc.sans.map(function(x){ return x.nom+(x.chaud!==null?" ("+fmt(x.chaud)+" W)":""); }).join(", ")+
+          " — appoint : "+(rep(lc,"appoint")||"à trancher"));
+      }
+    }
     L.push("VOLUME D'EAU estimé : "+fmt(ve.total)+" L ("+ve.detail+") → "+
       Math.max(1,Math.ceil(ve.total/100))+" bidon(s) d'inhibiteur");
     L.push("(pré-dimensionnement · G "+(gEstime()?"estimé":"saisi à la main")+" à "+fmt(coefG(),2)+
@@ -3023,7 +3505,15 @@ function postMake(url,obj){
 }
 function fileLire(){ return lire(CLE_FILE,[]); }
 function fileEcrire(f){ ecrire(CLE_FILE,f); }
-function fileAjouter(p){ var f=fileLire(); f.push({t:Date.now(), p:p}); fileEcrire(f); }
+var fileSeq=0;
+function fileAjouter(p,u){ var f=fileLire(); f.push({t:Date.now(), k:idUnique("f"), p:p, u:u||null}); return ecrire(CLE_FILE,f); }
+function fileRetirer(it){
+  var f=fileLire();
+  for(var i=0;i<f.length;i++){
+    if((it.k && f[i].k===it.k) || (!it.k && f[i].t===it.t)){ f.splice(i,1); break; }
+  }
+  fileEcrire(f);
+}
 
 var envoiEnCours=false;
 function viderFile(manuel){
@@ -3033,19 +3523,22 @@ function viderFile(manuel){
   if(!f.length){ if(manuel) toast("Rien en attente"); return; }
   if(!cfg.webhook){ if(manuel) toast("Adresse d'envoi non renseignée","mal"); return; }
   envoiEnCours=true;
-  var reste=f.slice(), envoyes=0;
+  var envoyes=0;
+  /* La file est relue a chaque pas : ce qui s'y ajoute pendant l'envoi (les photos
+     et les croquis arrivent apres la fiche) part dans la foulee, et rien n'est ecrase. */
   function suivant(){
+    var reste=fileLire();
     if(!reste.length){
-      envoiEnCours=false; fileEcrire([]);
+      envoiEnCours=false;
       if(envoyes){ toast(envoyes+" envoi"+(envoyes>1?"s":"")+" effectué"+(envoyes>1?"s":""),"ok"); }
       return;
     }
     var it=reste[0];
-    postMake(cfg.webhook,it.p)
+    postMake(it.u||cfg.webhook,it.p)
       .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
-      .then(function(){ reste.shift(); envoyes++; fileEcrire(reste.slice()); suivant(); })
+      .then(function(){ fileRetirer(it); envoyes++; suivant(); })
       .catch(function(){
-        envoiEnCours=false; fileEcrire(reste.slice());
+        envoiEnCours=false;
         if(manuel) toast(navigator.onLine===false ? "Pas de réseau — gardé en attente"
           : "Make n'a pas répondu — gardé en attente, rien n'est perdu","mal");
       });
@@ -3105,18 +3598,25 @@ function envoyerPhotos(statut){
 
   function lancer(){
     if(!lot.length) return;
-    var n=0;
-    function suivante(){
-      if(n>=lot.length) return;
-      var p=lot[n];
-      postMake(url,{secret:cfg.secret||"", type:"photo", statut:statut||"finale", fiche_id:V.id,
-        client:propre(V.client.nom), commune:propre(V.client.ville),
+    /* Avant la v3.5 les photos partaient en direct : sans reseau, elles se perdaient sans
+       bruit alors que la fiche, elle, attendait dans la file. Tout passe par la file. */
+    var directs=[];
+    lot.forEach(function(p,n){
+      var ph={secret:cfg.secret||"", type:"photo", statut:statut||"finale", fiche_id:V.id,
+        client:nomClient(), commune:propre(V.client.ville),
         opportunite_id:V.opp_id, date:V.date, source:propre(p.source), etiquette:p.et, question:p.q,
-        nom_fichier: slug(V.date)+"_"+slug(V.client.nom)+"_"+slug(p.source)+"_"+slug(p.et)+"_"+(n+1)+".jpg",
-        image_base64: p.data.split(",")[1]})
-        .then(function(){ n++; suivante(); }).catch(function(){});
+        nom_fichier: slug(V.date)+"_"+slug(nomClient()||"chantier")+"_"+slug(p.source)+"_"+slug(p.et)+"_"+(n+1)+".jpg",
+        image_base64: p.data.split(",")[1]};
+      if(!fileAjouter(ph, url!==cfg.webhook ? url : null)) directs.push(ph);   /* memoire pleine : on tente en direct */
+    });
+    if(directs.length){
+      var n=0;
+      (function suivante(){
+        if(n>=directs.length) return;
+        postMake(url,directs[n]).then(function(){ n++; suivante(); }).catch(function(){ noterIncident("photo non envoyée (mémoire pleine et réseau absent)"); });
+      })();
     }
-    suivante();
+    viderFile(false);
   }
 }
 function copier(t,titre){
@@ -3196,6 +3696,15 @@ function briefChiffrage(){
     L.push("7. PAC : vérifier que le modèle figure sur la liste d'agrément ADEME (bonus-pac.ademe.fr).");
     L.push("   Depuis le 1er septembre 2026, la prime CEE bonifiée l'exige, et c'est la date de signature");
     L.push("   du devis qui fait foi. Le numéro d'agrément va sur la facture et sur l'attestation sur l'honneur.");
+  }
+  var LH=lotGazHesite();
+  if(LH){
+    L.push("8. GAZ OU PAC — le client n'a pas tranché. Versions à chiffrer : "+(versionsGaz(LH).join(", ")||"à confirmer avec moi")+".");
+    L.push("   Un devis par version, à partir du même relevé. Avant toute création dans Axonaut, me présenter un comparatif");
+    L.push("   interne : coût installé de chaque version après aides (aides à vérifier à la source au moment du chiffrage —");
+    L.push("   Coup de pouce seulement si la chaudière déposée n'est pas à condensation, MaPrimeRénov' selon le RFR relevé),");
+    L.push("   et coût annuel estimé à partir de la consommation relevée (kWh). Ces chiffres sont pour moi : rien ne part");
+    L.push("   au client avant que je les aie validés.");
   }
   L.push("");
   L.push(resumeTexte());
@@ -3326,6 +3835,7 @@ function ouvrirReglages(){
    ============================================================ */
 $("#logo").src = LOGO_KARE;
 $("#bReglages").onclick = ouvrirReglages;
+$("#tBarre").onclick = ouvrirFiches;
 if(!STOCK_OK) majEtat("enregistrement indisponible","mal");
 
 window.addEventListener("online", function(){ viderFile(false); chargerListe(false); });
@@ -3377,9 +3887,9 @@ var CR_EPAISSEURS = [1.6, 3, 6];
 
 /* Chaque symbole : forme, abréviation, libellé, largeur relative */
 var SYMBOLES = [
-  {k:"rad",   f:"rect",  a:"",    l:"Radiateur",   w:1.6, h:0.7, barres:true},
+  {k:"rad",   f:"rect",  a:"",    l:"Radiateur",   w:1.4, h:0.18, barres:true},
   {k:"pc",    f:"rect",  a:"PC",  l:"Plancher ch.",w:1.4, h:1.0},
-  {k:"ss",    f:"rect",  a:"",    l:"Sèche-serv.", w:0.7, h:1.4, barres:true},
+  {k:"ss",    f:"rect",  a:"",    l:"Sèche-serv.", w:0.6, h:0.18, barres:true},
   {k:"ue",    f:"rect",  a:"UE",  l:"Groupe ext.", w:1.4, h:0.8, helice:true},
   {k:"ui",    f:"rect",  a:"UI",  l:"Unité int.",  w:1.5, h:0.5},
   {k:"gain",  f:"rect",  a:"G",   l:"Gainable",    w:1.4, h:0.6},
@@ -3526,6 +4036,48 @@ function distElement(E,x,y){
   }
   return d;
 }
+/* Une UI sans repere ne sert a rien au bureau : « UI Salon » dit ou elle va,
+   « UI 3 » a defaut. Le repere suit la piece dans laquelle le symbole est pose. */
+var SYM_REPERES = {ui:"UI", gain:"G", rad:"Rad", ss:"SS", pc:"PC", ue:"UE", pac:"PAC", chaud:"Chaud", ballon:"ECS"};
+function pieceContenant(C,x,y){
+  var niv=C.niv===undefined?1:C.niv, best=null, ba=9;
+  C.el.forEach(function(E){
+    if(E.t!=="piece" || nivDe(E)!==niv || E.deduit) return;
+    var pts=polyDe(E);
+    if(!dansPoly(pts,x,y)) return;
+    var a=Math.abs(airePoly(pts));
+    if(a<ba){ ba=a; best=E; }
+  });
+  return best;
+}
+function reperer(C,E){
+  if(!E || E.t!=="sym") return;
+  var pref=SYM_REPERES[E.s];
+  if(!pref) return;
+  if(txt(E.txt) && !E.auto) return;
+  var P=pieceContenant(C,E.x,E.y), base;
+  if(P && txt(P.nom)) base=pref+" "+P.nom;
+  else {
+    var pris={}, n=1;
+    C.el.forEach(function(X){ if(X.t==="sym" && X.s===E.s && X!==E && txt(X.txt)) pris[X.txt]=1; });
+    while(pris[pref+" "+n]) n++;
+    base=pref+" "+n;
+  }
+  E.txt=base; E.auto=true;
+}
+/* Le symbole est petit et pose expres : sous le doigt, il gagne contre le mur
+   d'a cote. Sinon appuyer sur une UI collee a la cloison fait partir la piece. */
+function symSousBoite(C,x,y){
+  var niv=C.niv===undefined?1:C.niv, best=null, bd=9;
+  for(var i=C.el.length-1;i>=0;i--){
+    var E=C.el[i];
+    if(E.t!=="sym" || nivDe(E)!==niv) continue;
+    var d=symDef(E.s), t=E.e||0.075, r=Math.max(d.w,d.h)*t/2+0.012;
+    var dd=Math.sqrt((x-E.x)*(x-E.x)+(y-E.y)*(y-E.y));
+    if(dd<=r && dd<bd){ bd=dd; best=i; }
+  }
+  return best;
+}
 function symSous(C,x,y,seuil){
   var sr=seuil===undefined?0.05:seuil, best=null, bd=sr;
   var niv=C.niv===undefined?1:C.niv;
@@ -3642,12 +4194,13 @@ function elementSous(C,x,y,seuil,interieurPiece){
   var niv=C.niv===undefined?1:C.niv, i;
   for(i=C.el.length-1;i>=0;i--){
     if(nivDe(C.el[i])!==niv) continue;
+    if(C.fige && C.el[i].t==="piece") continue;
     var d=distElement(C.el[i],x,y);
     if(d<=bd){ best=i; bd=d; }
   }
   if(best!==null) return best;
   /* rien de pose sous le doigt : on attrape alors la piece dans laquelle on se trouve */
-  if(interieurPiece){
+  if(interieurPiece && !C.fige){
     for(i=C.el.length-1;i>=0;i--){
       var E=C.el[i];
       if(E.t!=="piece" || nivDe(E)!==niv) continue;
@@ -3768,6 +4321,7 @@ function sommetSous(C,x,y,seuil){
   for(var i=0;i<C.el.length;i++){
     var E=C.el[i];
     if(nivDe(E)!==niv) continue;
+    if(C.fige && E.t==="piece") continue;
     var pts=pointsDe(E);
     if(!pts) continue;
     for(var k=0;k<pts.length;k+=2){
@@ -3784,6 +4338,7 @@ function segmentSous(C,x,y,seuil){
   for(var i=0;i<C.el.length;i++){
     var E=C.el[i];
     if(nivDe(E)!==niv) continue;
+    if(C.fige && E.t==="piece") continue;
     var pts=pointsDe(E);
     if(!pts) continue;
     var fin = ferme(E) ? pts.length : pts.length-2;
@@ -4073,10 +4628,11 @@ function crElement(C, ctx, W, E, sel, niv){
       crEtiquette(ctx, W, (E.x1+E.x2)/2*W, (E.y1+E.y2)/2*W, fmt(lm,2)+" m", col);
   } else if(E.t==="piece"){
     var pts=polyDe(E), ctr=centrePoly(pts);
-    ctx.strokeStyle=sel?"#A31D14":(E.deduit?"#9A5B00":"#3D5468");
-    ctx.lineWidth=W/1000*(sel?7:5);
-    ctx.fillStyle=E.deduit?"rgba(154,91,0,0.07)":"rgba(13,59,102,0.06)";
+    ctx.strokeStyle=sel?"#A31D14":(E.deduit?"#9A5B00":(E.annexe?"#6B7C8C":"#3D5468"));
+    ctx.lineWidth=W/1000*(sel?7:(E.annexe?4:5));
+    ctx.fillStyle=E.deduit?"rgba(154,91,0,0.07)":(E.annexe?"rgba(107,124,140,0.05)":"rgba(13,59,102,0.06)");
     if(E.deduit) ctx.setLineDash([W/1000*12, W/1000*7]);
+    else if(E.annexe) ctx.setLineDash([W/1000*6, W/1000*6]);
     ctx.beginPath();
     ctx.moveTo(pts[0]*W, pts[1]*W);
     for(i=2;i<pts.length;i+=2) ctx.lineTo(pts[i]*W, pts[i+1]*W);
@@ -4100,6 +4656,7 @@ function crElement(C, ctx, W, E, sel, niv){
       var sm=surfacePoly(C,E);
       if(sm!==null) inf=fmt(sm,1)+" m²";
     }
+    if(E.annexe) inf=(inf?inf+" \u00b7 ":"")+"annexe";
     if(inf) ctx.fillText(inf, ctr.x*W, ctr.y*W + W/60);
   } else if(E.t==="texte"){
     ctx.fillStyle=E.c||"#0E1A26";
@@ -4256,10 +4813,11 @@ function crSymbole(ctx, W, E, sel){
   }
   ctx.restore();
   if(txt(E.txt) && E.s!=="perc"){
+    var ang=(E.r||0)*Math.PI/180, ext=Math.abs(w/2*Math.sin(ang))+Math.abs(h/2*Math.cos(ang));
     ctx.fillStyle="#3D5468";
     ctx.font=(W/58)+"px 'Barlow Semi Condensed',Arial,sans-serif";
     ctx.textAlign="center"; ctx.textBaseline="top";
-    ctx.fillText(E.txt, E.x*W, E.y*W + h/2 + W/220);
+    ctx.fillText(E.txt, E.x*W, E.y*W + ext + W/220);
   }
 }
 
@@ -4506,7 +5064,7 @@ function ouvrirCroquis(C, apresFermeture){
   var info=el("div","crinfo"); zone.appendChild(info);
 
   var niveaux=el("div","crniv");
-  var ctxb=el("div","crctx"); ctxb.style.display="none";
+  var ctxb=el("div","crctx");
   var bas=el("div","crbas");
   var palette=el("div","crpal"); palette.style.display="none";
 
@@ -4659,7 +5217,7 @@ function ouvrirCroquis(C, apresFermeture){
       ctxb.appendChild(bf);
       return;
     }
-    if(CRE.sel===null || !C.el[CRE.sel]){ ctxb.style.display="none"; return; }
+    if(CRE.sel===null || !C.el[CRE.sel]){ return; }
     var E=C.el[CRE.sel];
     ctxb.style.display="flex";
     var nom = E.t==="sym" ? symDef(E.s).l
@@ -4939,6 +5497,7 @@ function ouvrirCroquis(C, apresFermeture){
     } else if(CRE.outil==="sym"){
       var E={t:"sym", s:CRE.sym, x:r3(p.x), y:r3(p.y), r:0, e:CRE.taille||0.055, txt:""};
       pousser(E);
+      reperer(C,E);
       CRE.sel=C.el.length-1;
       sauver(); peindre();
       if(CRE.sym==="perc"){
@@ -4947,7 +5506,7 @@ function ouvrirCroquis(C, apresFermeture){
           sauver(); peindre();
         });
       }
-      CRE.encours={mode:"deplacer", i:C.el.length-1, dx:0, dy:0};
+      CRE.encours={mode:"deplacer", i:C.el.length-1, dx:0, dy:0, pose:true};
     } else if(CRE.outil==="chemin"){
       if(!CRE.chemin){ toast("Choisis d'abord comment ça passe","att"); CRE.encours={mode:"clic"}; return; }
       var sy=symSous(C,p.x,p.y);
@@ -4999,6 +5558,14 @@ function ouvrirCroquis(C, apresFermeture){
       });
       CRE.encours={mode:"clic"};
     } else if(CRE.outil==="deplacer"){
+      var isb=symSousBoite(C,p.x,p.y);
+      if(isb!==null){
+        var Es=C.el[isb];
+        CRE.sel=isb; CRE.somm=null;
+        CRE.encours={mode:"deplacer", i:isb, dx:p.x-Es.x, dy:p.y-Es.y, ox:p.x, oy:p.y, suite:null};
+        peindre();
+        return;
+      }
       var som=sommetSous(C,p.x,p.y);
       if(som){
         CRE.sel=som.i; CRE.somm={E:som.E, k:som.k};
@@ -5131,6 +5698,16 @@ function ouvrirCroquis(C, apresFermeture){
     if(CRE.longPress){ clearTimeout(CRE.longPress); CRE.longPress=null; }
     var m=CRE.encours; CRE.encours=null;
     if(!m) return;
+    if(m.mode==="deplacer" && m.i!==null && m.i!==undefined && C.el[m.i] && C.el[m.i].t==="sym") reperer(C, C.el[m.i]);
+    if(m.pose){
+      /* Un symbole pose = l'outil rend la main. Avant, chaque appui suivant en posait
+         un de plus, y compris le premier doigt d'un zoom : le plan se couvrait d'UI. */
+      sauver();
+      outilChoisi("deplacer");
+      CRE.sel=m.i; peindre();
+      toast("Posé — pour en poser un autre, reprends « Symboles »","ok");
+      return;
+    }
     if(m.mode==="droit"){
       var ln0=Math.sqrt(Math.pow(m.E.p[2]-m.E.p[0],2)+Math.pow(m.E.p[3]-m.E.p[1],2));
       if(ln0<0.012){ var ix=C.el.indexOf(m.E); if(ix>=0){ C.el.splice(ix,1); CRE.hist.pop(); } sauver(); peindre(); return; }
@@ -5167,7 +5744,7 @@ function ouvrirCroquis(C, apresFermeture){
   /* --- barre d'outils --- */
   function outilChoisi(k){
     CRE.outil=k;
-    if(k!=="sym") palette.style.display="none";
+    if(k!=="sym" && palette.style.display!=="none"){ palette.style.display="none"; dimensionner(); }
     CRE.sel=null;
     Array.prototype.forEach.call(bas.querySelectorAll("button[data-o]"), function(b){
       b.className = "crb"+(b.dataset.o===k ? " on" : "");
@@ -5177,7 +5754,7 @@ function ouvrirCroquis(C, apresFermeture){
   function outil(k, lib){
     var b=el("button","crb",lib); b.type="button"; b.dataset.o=k;
     b.onclick=function(){
-      if(k==="sym"){ palette.style.display = (palette.style.display==="none") ? "flex" : "none"; }
+      if(k==="sym"){ palette.style.display = (palette.style.display==="none") ? "flex" : "none"; dimensionner(); }
       if(k==="liaison"){ C.el.forEach(function(E){ if(E.t==="liaison") E.ouvert=false; }); }
       if(k==="chemin"){
         C.el.forEach(function(E){ if(E.t==="liaison") E.ouvert=false; });
@@ -5268,7 +5845,7 @@ function ouvrirCroquis(C, apresFermeture){
     crSymbole(mc, 200, {t:"sym", s:d.k, x:0.19, y:0.13, r:0, e:0.13, txt:""}, false);
     b.appendChild(mini);
     b.appendChild(el("span",null,d.l));
-    b.onclick=function(){ CRE.sym=d.k; outilChoisi("sym"); palette.style.display="none"; toast(d.l+" — appuie sur le plan","ok"); };
+    b.onclick=function(){ CRE.sym=d.k; outilChoisi("sym"); palette.style.display="none"; dimensionner(); peindre(); toast(d.l+" — appuie sur le plan","ok"); };
     palette.appendChild(b);
   });
 
@@ -5286,6 +5863,27 @@ function ouvrirCroquis(C, apresFermeture){
       b.onclick=function(){ C.niv=i; CRE.sel=null; sauver(); majNiveaux(); peindre(); };
       niveaux.appendChild(b);
     });
+    var nPieces=0;
+    C.el.forEach(function(E){ if(E.t==="piece" && !E.deduit && nivDe(E)===C.niv) nPieces++; });
+    if(nPieces){
+      niveaux.appendChild(el("span","crsep"));
+      var bAd=el("button","crb","⌗ Adapter"); bAd.type="button";
+      bAd.title="Recale les pièces les unes contre les autres";
+      bAd.onclick=function(){
+        if(C.fige){ toast("Les pièces sont bloquées — débloque-les d'abord","att"); return; }
+        var n=adapterPieces(C);
+        CRE.hist=[]; sauver(); peindre();
+        toast(n ? n+" pièce"+(n>1?"s":"")+" recalée"+(n>1?"s":"")+" — bloque-les quand ça te va" : "Rien à recaler : les bords sont déjà alignés ou trop loin les uns des autres","ok");
+      };
+      niveaux.appendChild(bAd);
+      var bFg=el("button","crb"+(C.fige?" on":""), C.fige ? "🔒 Pièces bloquées" : "🔓 Bloquer"); bFg.type="button";
+      bFg.onclick=function(){
+        C.fige=!C.fige; CRE.sel=null; sauver(); majNiveaux(); peindre();
+        toast(C.fige ? "Pièces bloquées : elles ne bougent plus, tu peux poser et déplacer les symboles dessus"
+                     : "Pièces débloquées : elles se déplacent à nouveau","ok");
+      };
+      niveaux.appendChild(bFg);
+    }
     var aide=el("span","mini", C.niv>0 ? "le niveau du dessous reste visible en filigrane pour aligner gaines et percements" : "");
     niveaux.appendChild(aide);
   }
@@ -5404,6 +6002,8 @@ function ouvrirCroquis(C, apresFermeture){
     if(!CRE.encours) return;
     var m=CRE.encours;
     if(m.E){ var i=C.el.indexOf(m.E); if(i>=0){ C.el.splice(i,1); CRE.hist.pop(); } }
+    /* le premier doigt d'un pincement avait deja pose un symbole : on le reprend */
+    if(m.pose && m.i!==undefined && C.el[m.i] && C.el[m.i].t==="sym"){ C.el.splice(m.i,1); CRE.hist.pop(); CRE.sel=null; }
     CRE.encours=null; actif=null; peindre();
   }
   function majPinch(){
@@ -5624,12 +6224,13 @@ function metreLignes(){
   return out;
 }
 function crResume(C){
-  var syms={}, nl=0, ml=0, mv=0, perc=[], cotes=0;
+  var syms={}, nl=0, ml=0, mv=0, perc=[], cotes=0, reps=[];
   C.el.forEach(function(E){
     if(E.t==="sym"){
       var d=symDef(E.s);
       if(E.s==="perc") perc.push(txt(E.txt)?("Ø"+E.txt):"Ø à préciser");
       else syms[d.l]=(syms[d.l]||0)+1;
+      if(SYM_REPERES[E.s] && txt(E.txt)) reps.push(E.txt);
     } else if(E.t==="liaison"){
       nl++;
       var LL=longueurLiaison(C,E);
@@ -5646,6 +6247,7 @@ function crResume(C){
     t.push(libs.join(" + "));
   }
   for(var k in syms) if(syms.hasOwnProperty(k)) t.push(syms[k]+" "+k.toLowerCase()+(syms[k]>1?"s":""));
+  if(reps.length) t.push("repères : "+reps.join(", "));
   if(nl) t.push(nl+" liaison"+(nl>1?"s":"")+
     (ml?" ("+fmt(ml,1)+" m"+(mv?" dont "+fmt(mv,1)+" m en vertical":"")+")":""));
   if(perc.length) t.push(perc.length+" percement"+(perc.length>1?"s":"")+" "+perc.join(", "));
@@ -5654,15 +6256,23 @@ function crResume(C){
   nivs.forEach(function(n){ libn.push(NIVEAUX[n]); });
   return {texte:t.join(" · "), liaisons_m:ml?Math.round(ml*10)/10:null,
           liaisons_vertical_m:mv?Math.round(mv*10)/10:null, percements:perc,
-          symboles:syms, echelle:C.ech?C.ech.m:null, niveaux:libn};
+          symboles:syms, reperes:reps, echelle:C.ech?C.ech.m:null, niveaux:libn};
 }
 /* Poser les pieces, puis rapatrier ce qui a ete dessine dans chaque croquis de piece. */
 function poserToutesLesPieces(){
   var C=planEnsemble(true);
-  var garde=[];
-  C.el.forEach(function(E){ if(!(E.t==="piece" && !E.src)) garde.push(E); });
-  C.el=garde;
-  if(!poserPieces(C)) return null;
+  var existantes=[];
+  C.el.forEach(function(E){ if(E.t==="piece" && !E.src && !E.deduit) existantes.push(E); });
+  var r;
+  if(!existantes.length){
+    if(!poserPieces(C)) return null;
+    r={ajoutees:existantes.length, maj:0, neuf:true};
+  } else {
+    /* Le plan existe et les pieces ont ete placees a la main : on n'y touche pas.
+       On ajoute ce qui manque a la meme echelle et on met a jour les cotes qui ont change. */
+    r=completerPieces(C, existantes);
+    if(!r) return null;
+  }
   var n=0;
   V.pieces.forEach(function(P){
     if(!P.croquis || !P.croquis.length) return;
@@ -5671,14 +6281,98 @@ function poserToutesLesPieces(){
     if(reporterSurPlan(K)) n++;
   });
   sauverTout();
-  return {plan:C, reportes:n};
+  return {plan:C, reportes:n, ajoutees:r.ajoutees, maj:r.maj, neuf:r.neuf};
+}
+function completerPieces(C, existantes){
+  var ech = C.ech ? C.ech.px/C.ech.m : null;
+  if(!ech){
+    for(var q=0;q<existantes.length && !ech;q++){
+      var E0=existantes[q];
+      V.pieces.forEach(function(P){
+        if(ech) return;
+        if(sansAccent(txt(P.nom)).toLowerCase()!==sansAccent(txt(E0.nom)).toLowerCase()) return;
+        var l=nb(P.lg); if(l && E0.w) ech=E0.w/l;
+      });
+    }
+  }
+  if(!ech){ toast("Pas d'échelle sur ce plan — pose-la avant d'ajouter des pièces","att"); return null; }
+  var marge=0.08, ajoutees=0, maj=0, curseur={};
+  V.pieces.forEach(function(P){
+    var l=nb(P.lg), la=nb(P.la), sp=surfacePiece(P);
+    if(l===null||la===null){
+      if(sp===null) return;
+      l=Math.sqrt(sp*1.3); la=sp/l;
+    }
+    var niv=nivIndex(P.niveau), nom=sansAccent(txt(P.nom)).toLowerCase(), E=null;
+    existantes.forEach(function(X){
+      if(E) return;
+      if(nivDe(X)===niv && sansAccent(txt(X.nom)).toLowerCase()===nom) E=X;
+    });
+    var w=r3(l*ech), h=r3(la*ech), info=fmt(l,2)+" \u00d7 "+fmt(la,2)+" m";
+    if(E){
+      E.annexe=!!P.annexe;
+      if(!E.poly && (Math.abs(E.w-w)>0.001 || Math.abs(E.h-h)>0.001)){ E.w=w; E.h=h; E.info=info; maj++; }
+      else if(!E.poly) E.info=info;
+      return;
+    }
+    if(!curseur[niv]){
+      var y0=marge, x0=marge;
+      C.el.forEach(function(X){
+        if(X.t!=="piece" || nivDe(X)!==niv) return;
+        var b=boitePoly(polyDe(X));
+        y0=Math.max(y0, b.y+b.h+0.03);
+      });
+      curseur[niv]={x:x0, y:y0, hr:0};
+    }
+    var cu=curseur[niv];
+    if(cu.x>marge && cu.x+w>1-marge){ cu.x=marge; cu.y=r3(cu.y+cu.hr+0.02); cu.hr=0; }
+    var N={t:"piece", n:niv, x:r3(cu.x), y:r3(cu.y), w:w, h:h, nom:txt(P.nom)||"Pi\u00e8ce", info:info, annexe:!!P.annexe};
+    C.el.push(N); existantes.push(N); ajoutees++;
+    cu.x=r3(cu.x+w); cu.hr=Math.max(cu.hr,h);
+    if(cu.y+h+marge > C.ratio) C.ratio=Math.min(2.2, r3(cu.y+h+marge));
+  });
+  return {ajoutees:ajoutees, maj:maj, neuf:false};
 }
 /* Le degagement : ce qui reste entre les pieces posees. On quadrille l'emprise,
    on marque ce qui est occupe, on ecarte l'exterieur par debordement depuis les
    bords, et ce qui reste enferme entre les pieces est le couloir. */
+/* Les pieces sont posees « a peu pres » au doigt : on recale chaque bord sur le bord
+   voisin quand il en est a moins de 45 cm, en partant de la plus grande. Une translation
+   par axe et par piece, jamais de mise a l'echelle : les cotes restent celles relevees. */
+function adapterPieces(C){
+  var niv=C.niv===undefined?1:C.niv, ps=[];
+  C.el.forEach(function(E){ if(E.t==="piece" && nivDe(E)===niv && !E.deduit && !E.poly) ps.push(E); });
+  if(ps.length<2) return 0;
+  var seuil = C.ech ? Math.min(0.05, 0.45*C.ech.px/C.ech.m) : 0.03;
+  ps.sort(function(a,b){ return b.w*b.h - a.w*a.h; });
+  var fixes=[ps[0]], n=0;
+  function chev(a1,a2,b1,b2){ return Math.min(a2,b2)-Math.max(a1,b1) > -seuil; }
+  for(var i=1;i<ps.length;i++){
+    var E=ps[i], bx=null, by=null, dbx=seuil, dby=seuil;
+    var ex=[E.x, E.x+E.w], ey=[E.y, E.y+E.h];
+    fixes.forEach(function(F){
+      var fx=[F.x, F.x+F.w], fy=[F.y, F.y+F.h], a, b, d;
+      if(chev(ey[0],ey[1],fy[0],fy[1])){
+        for(a=0;a<2;a++) for(b=0;b<2;b++){ d=fx[b]-ex[a]; if(Math.abs(d)<dbx){ dbx=Math.abs(d); bx=d; } }
+      }
+      if(chev(ex[0],ex[1],fx[0],fx[1])){
+        for(a=0;a<2;a++) for(b=0;b<2;b++){ d=fy[b]-ey[a]; if(Math.abs(d)<dby){ dby=Math.abs(d); by=d; } }
+      }
+    });
+    var dx=(bx!==null && Math.abs(bx)>0.0005)?bx:0, dy=(by!==null && Math.abs(by)>0.0005)?by:0;
+    if(dx||dy){
+      var suite=contenuDeRect(C,E);
+      decalerElement(E,dx,dy);
+      suite.forEach(function(S){ decalerElement(S,dx,dy); });
+      n++;
+    }
+    fixes.push(E);
+  }
+  return n;
+}
 function deduireDegagement(C){
   var niv=(C.niv===undefined)?1:C.niv, pieces=[];
-  C.el.forEach(function(E){ if(E.t==="piece" && nivDe(E)===niv && !E.deduit) pieces.push(E); });
+  C.el.forEach(function(E){ if(E.t==="piece" && nivDe(E)===niv && !E.deduit && !E.annexe) pieces.push(E); });
   if(pieces.length<2) return {erreur:"Il faut au moins deux pièces posées sur ce niveau"};
 
   var x1=99, y1=99, x2=-99, y2=-99;
@@ -5801,7 +6495,7 @@ function poserPieces(C){
       if(sp===null) return;
       l=Math.sqrt(sp*1.3); la=sp/l;
     }
-    dispo.push({nom:txt(P.nom)||"Pi\u00e8ce", l:l, la:la, s:l*la, niv:nivIndex(P.niveau)});
+    dispo.push({nom:txt(P.nom)||"Pi\u00e8ce", l:l, la:la, s:l*la, niv:nivIndex(P.niveau), annexe:!!P.annexe});
   });
   if(!dispo.length){ toast("Aucune pi\u00e8ce cot\u00e9e dans l'onglet Pi\u00e8ces","att"); return false; }
 
@@ -5852,7 +6546,7 @@ function poserGroupe(C, dispo, niveau, ech, marge){
     var x=marge, hr=0;
     rg.forEach(function(p){
       C.el.push({t:"piece", n:niveau, x:r3(x), y:r3(y), w:r3(p.l*ech), h:r3(p.la*ech),
-                 nom:p.nom, info:fmt(p.l,2)+" \u00d7 "+fmt(p.la,2)+" m"});
+                 nom:p.nom, info:fmt(p.l,2)+" \u00d7 "+fmt(p.la,2)+" m", annexe:!!p.annexe});
       x+=p.l*ech;
       hr=Math.max(hr, p.la*ech);
     });
@@ -5914,16 +6608,24 @@ function vueCroquis(a){
     V.croquis.push(C); sauverTout();
     ouvrirCroquis(C, rendre);
   };
-  var bP=el("button","btn","⬛ Poser les pièces à l'échelle"); bP.type="button";
+  var dejaPlan=false;
+  (V.croquis||[]).forEach(function(K){ (K.el||[]).forEach(function(E){ if(E.t==="piece" && !E.src && !E.deduit) dejaPlan=true; }); });
+  var bP=el("button","btn", dejaPlan ? "⬛ Mettre à jour les pièces du plan" : "⬛ Poser les pièces à l'échelle"); bP.type="button";
   bP.onclick=function(){
     var r=poserToutesLesPieces();
     if(!r) return;
+    if(!r.neuf){
+      var mm=[];
+      if(r.ajoutees) mm.push(r.ajoutees+" pièce"+(r.ajoutees>1?"s":"")+" ajoutée"+(r.ajoutees>1?"s":"")+" sous le plan, à glisser en place");
+      if(r.maj) mm.push(r.maj+" cote"+(r.maj>1?"s":"")+" mise"+(r.maj>1?"s":"")+" à jour");
+      toast(mm.length ? mm.join(" · ") : "Le plan est déjà à jour — rien n'a bougé","ok");
+    }
     if(r.reportes) toast(r.reportes+" croquis de pièce repris avec ce qu'il y a dessus","ok");
     ouvrirCroquis(r.plan, rendre);
   };
   zb.appendChild(bN); zb.appendChild(bP);
   a.appendChild(zb);
-  a.appendChild(el("p","mini","« Poser les pièces » reprend les longueurs et largeurs déjà saisies dans l'onglet Pièces et les sort en rectangles à l'échelle, chacun sur son niveau : tu n'as plus qu'à les faire glisser à leur place. Un croquis de pièce détaillé se reporte ensuite sur ce plan, à l'échelle, par le bouton « Reporter sur le plan »."));
+  a.appendChild(el("p","mini","« Poser les pièces » reprend les longueurs et largeurs déjà saisies dans l'onglet Pièces et les sort en rectangles à l'échelle, chacun sur son niveau : tu n'as plus qu'à les faire glisser à leur place, « Adapter » les recale bord à bord, « Bloquer » les fige. Une pièce ajoutée après coup vient s'ajouter sous le plan sans rien déplacer. Un croquis de pièce détaillé se reporte ensuite sur ce plan, à l'échelle, par le bouton « Reporter sur le plan »."));
 
   var b2=bloc(a,"Plans et documents du client",(V.plans||[]).length?String((V.plans||[]).length):null,false);
   var bAdd=el("button","btn mini","📷 Ajouter un plan"); bAdd.type="button";
@@ -5971,7 +6673,12 @@ window.KARE = {
   brief:briefChiffrage, exporter:exporterFiche, importer:importerFiche, niveaux:niveauxDuBati,
   reglages:ouvrirReglages, reprise:ouvrirReprise, poids:poidsStockage, journal:function(){ return lire(CLE_JOURNAL,[]); },
   metre:metreLignes, metreTotal:metreTotal, reporterSurPlan:reporterSurPlan,
-  traverse:traverseNiveau, nivSegment:nivSegment
+  traverse:traverseNiveau, nivSegment:nivSegment,
+  poserToutes:poserToutesLesPieces, adapter:adapterPieces, reperer:reperer,
+  symSousBoite:symSousBoite, nomClient:nomClient, planEnsemble:planEnsemble,
+  climEstChauffage:climEstChauffage, bilanClim:bilanClim, vitreeMur:vitreeMur, eclaterCotes:eclaterCotes,
+  photosAttendues:photosAttendues, toutAuRdc:toutAuRdc, postesObligatoires:postesObligatoires, pointsOuverts:pointsOuverts,
+  gazHesite:gazHesite, versionsGaz:versionsGaz, lotGazHesite:lotGazHesite, aLotPac:aLotPac
 };
 
 rendre();
