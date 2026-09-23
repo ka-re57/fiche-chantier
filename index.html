@@ -98,6 +98,12 @@ input[type=text],input[type=number],input[type=tel],input[type=email],input[type
 input[type=number]{font-family:var(--num);font-variant-numeric:tabular-nums}
 textarea{min-height:90px;resize:vertical;line-height:1.4}
 .champ{display:block}
+.champ.avecx{position:relative}
+.champ.avecx input{padding-right:58px}
+.kx{position:absolute;right:5px;bottom:4px;width:46px;height:36px;border-radius:8px;border:1px solid var(--marque);
+  background:var(--marque);color:var(--surmarque);font-family:var(--ui);font-size:22px;font-weight:700;line-height:1;
+  cursor:pointer;padding:0;touch-action:manipulation}
+.kx:active{filter:brightness(.85)}
 .champ label.ch{margin-top:8px}
 .rang{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
 .rang>*{flex:1 1 140px;min-width:0}
@@ -150,6 +156,12 @@ label.ch{display:block;font-size:13px;color:var(--texte3);font-family:var(--ui);
 .ph .lg{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);color:#fff;
   font-size:10px;padding:1px 3px;text-align:center;font-family:var(--ui)}
 .alerte{border-radius:var(--r);padding:11px 13px;margin:0 0 10px;font-size:15px;border:1px solid}
+.alerte.lien{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.alerte.lien .btn{flex:0 0 auto;border-color:currentColor;color:inherit;background:transparent}
+.phatt.on{border-style:solid;border-color:var(--ok);background:var(--okf);color:var(--ok)}
+.ptouv{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--trait2);
+  padding:8px 4px;font:inherit;font-size:14px;color:var(--texte2);cursor:pointer;min-height:40px}
+.ptouv:first-child{border-top:none}
 .alerte.mal{background:var(--malf);border-color:var(--mal);color:var(--mal)}
 .alerte.att{background:var(--attf);border-color:var(--att);color:var(--att)}
 .alerte.ok{background:var(--okf);border-color:var(--ok);color:var(--ok)}
@@ -281,7 +293,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "3.7";
+var VERSION = "3.9";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -327,15 +339,21 @@ var LOTS = [
     i:"Un devis par version, même relevé", si:gazHesite},
    {k:"pref", l:"Ce que le client préfère a priori", t:"chx", opts:["Gaz","PAC","Hybride","Sans avis"],
     i:"Le pourquoi — prix, habitude, écologie — va dans « Ce que je retiens »", si:gazHesite},
-   {k:"evac", l:"Évacuation actuelle", t:"chx", opts:["Ventouse","Conduit maçonné","Tubage existant","Autre"]},
-   {k:"conduit", l:"Conduit — état, section, hauteur, tubage nécessaire ?"},
-   {k:"carot", l:"Carottage ventouse — nombre de trous", t:"num", u:"trous"},
-   {k:"carotmur", l:"Diamètre du carottage et nature du mur", i:"Ø · parpaing, béton, pierre, brique · épaisseur"},
+   {k:"evac", l:"Évacuation actuelle des fumées", t:"chx", opts:["Ventouse","Conduit maçonné","Tubage existant","Conduit supprimé ou condamné","Autre"]},
+   {k:"conduit", l:"Conduit — état, section, hauteur, tubage nécessaire ?",
+    si:function(L){ var e=rep(L,"evac"); return e!=="Ventouse" && e!=="Conduit supprimé ou condamné"; }},
+   {k:"fumees", l:"Fumées de la nouvelle chaudière", t:"chx",
+    opts:["Ventouse par carottage","Tubage du conduit","Conduit existant conservé","À voir"],
+    i:"Ce qu'on pose, pas ce qu'il y a"},
+   {k:"carot", l:"Carottage ventouse — combien de trous ?", t:"chx", opts:["Aucun","1 trou","2 trous","3 et plus"],
+    si:function(L){ return rep(L,"fumees")!=="Tubage du conduit" && rep(L,"fumees")!=="Conduit existant conservé"; }},
+   {k:"carotmur", l:"Carottage — Ø, nature et épaisseur du mur, sortie prévue", i:"Ø80 · pierre 50 cm · sous la fenêtre du couloir",
+    si:function(L){ return rep(L,"carot")!=="Aucun"; }},
    {k:"empl", l:"Emplacement de la nouvelle chaudière", t:"chx", opts:["Identique","Déplacé"]},
    {k:"dosseret", l:"Dosseret / bâti de raccordement à reprendre ?", t:"chx", opts:["Oui","Non"]},
    {k:"gaz", l:"Alimentation gaz — diamètre, longueur, robinet d'arrêt conforme ?"},
    {k:"elec", l:"Alimentation électrique dédiée", t:"chx", opts:["Présente","À créer","À vérifier"]},
-   {k:"cond", l:"Évacuation des condensats", t:"chx", opts:["Gravité","Pompe de relevage","À créer"]},
+   {k:"cond", l:"Évacuation des condensats", t:"chx", opts:["Existante à proximité","À créer, en gravité","Pompe de relevage","À voir"]},
    {k:"desemb", l:"Désembouage du circuit", t:"chx", opts:["Oui","Non"],
     i:"Systématique en remplacement. Le volume d'eau se calcule tout seul depuis les émetteurs."},
    {k:"regul", l:"Régulation", t:"chx", opts:["Filaire","Sans fil","Sonde extérieure","Connectée"],
@@ -355,6 +373,9 @@ var LOTS = [
    {k:"pac_elec", l:"Version PAC — alimentation électrique", t:"chx", opts:["Monophasé","Triphasé","À vérifier"],
     i:"Le calibre de l'abonnement se note dans l'onglet Maison", si:gazHesite},
    {k:"pac_bruit", l:"Version PAC — nuisance sonore : mitoyenneté, chambre à proximité, voisinage", si:gazHesite},
+   {k:"pac_cond", l:"Version PAC — condensats et eau de dégivrage du groupe", t:"chx",
+    opts:["Évacuation à proximité","Puits perdu à créer","Pompe de relevage","À voir"],
+    i:"L'eau de dégivrage gèle devant la porte si personne ne s'en occupe", si:gazHesite},
    {k:"pac_ecs", l:"Version PAC — eau chaude", t:"chx",
     opts:["PAC duo (ballon intégré)","Ballon ECS séparé sur la PAC","Chauffe-eau thermodynamique","Conservée telle quelle","À voir"], si:gazHesite},
    {k:"pac_isolcoh", l:"Version PAC — isolation cohérente avec une PAC ?", t:"chx",
@@ -746,7 +767,7 @@ function ficheVierge(){
     id: idUnique("ch"), statut:"brouillon", maj: Date.now(),
     date: aujourdhui(), h_arrivee:"", h_depart:"",
     opp_id:null, opp_titre:"", opp_etape:"", societe_id:null, societe:"",
-    client:{nom:"",tel:"",email:"",adresse:"",ville:"",logement:"",statut:"",annee:"",objet:"",drive:"",notes:""},
+    client:{nom:"",tel:"",email:"",adresse:"",ville:"",logement:"",statut:"",annee:"",annee_periode:"",objet:"",drive:"",notes:""},
     maison:{forme:"",mitoyen:"",etages:"",plus:[],isol_murs:"",isol_toit:"",isol_fen:"",typeisol:"",
             surface:"",acces:"",cloisons:"",compteur:"",pression:"",tableau:"",amiante:"",km:"",g:"",
             mur_cm:"",toit_cm:"",plancher_cm:"",vitrage:"",
@@ -754,10 +775,11 @@ function ficheVierge(){
             chaudiere_w:"",facture_montant:"",facture_energie:"",
             vase:{hstat:"",tdepart:"70",tarage:"3",integre:""}},
     aides:{souhaite:false, personnes:"", rfr:"", note:"",
-           civilite:"", parcelle:"", surf_pac:"", hsp_pac:"", g_force:"",
+           civilite:"", beneficiaire:"", parcelle:"", surf_pac:"", hsp_pac:"", g_force:"",
            pac_arret:"", pac_puissance:"", pac_ref:"", pac_base:"Tbase"},
     lots:[], pieces:[], plans:[], croquis:[],
     notes:{retiens:"", reserves:""},
+    docs:[],
     envoye:null
   };
 }
@@ -967,7 +989,16 @@ function besoinNdd(){ return !!(V.aides && V.aides.souhaite) && aLotPac(); }
 
 var vueRendue=null;
 var champIdx = 0;
+/* Chrome envoie blur + change au champ actif au moment ou rendre() le retire du DOM,
+   alors qu'il est encore rattache. Un gestionnaire de change qui declenche rendre()
+   s'imbriquerait dans le rendu en cours. Pendant un rendu, les change sont ignores. */
+var RENDU_EN_COURS=false;
 function rendre(){
+  var deja=RENDU_EN_COURS;
+  RENDU_EN_COURS=true;
+  try{ rendreInterne(); } finally{ RENDU_EN_COURS=deja; }
+}
+function rendreInterne(){
   /* On reste ou on etait : seul un changement d'onglet ramene en haut. */
   var memeVue = (vueRendue===vue);
   var y = memeVue ? (window.pageYOffset || document.documentElement.scrollTop || 0) : 0;
@@ -1243,7 +1274,7 @@ function nouvelleFiche(c){
    et hauteur. Le clavier decimal n'a ni x ni espace sur tous les Android : Entree
    passe aussi a la case suivante. */
 function eclaterCotes(v){
-  var t=String(v||"").replace(/,/g,".").replace(/[x×X*\/;]/g," ").replace(/\s+/g," ").trim();
+  var t=String(v||"").replace(/,/g,".").replace(/[x×X*\/;\-]/g," ").replace(/\s+/g," ").trim();
   if(!t) return null;
   var parts=t.split(" "), out=[];
   for(var i=0;i<parts.length;i++){
@@ -1269,7 +1300,7 @@ function chainer(inputs){
     });
   });
 }
-function champ(parent, lib, val, onc, type, ph){
+function champ(parent, lib, val, onc, type, ph, fois){
   var w=el("div","champ");
   w.appendChild(el("label","ch",lib));
   var i=el("input");
@@ -1281,7 +1312,25 @@ function champ(parent, lib, val, onc, type, ph){
   i.value=val||""; if(ph) i.placeholder=ph;
   i.setAttribute("data-ch", lib+"#"+(champIdx++));
   i.oninput=function(){ onc(this.value); sauver(); };
-  w.appendChild(i); parent.appendChild(w);
+  w.appendChild(i);
+  /* v3.8 — le clavier decimal d'Android n'a ni x ni espace : la touche × est dans
+     l'appli. preventDefault sur pointerdown garde le focus dans le champ, donc le
+     clavier reste ouvert ; on ecrit " x " et on laisse onc() faire le reste. */
+  if(fois){
+    w.className="champ avecx";
+    var kx=el("button","kx","×"); kx.type="button"; kx.setAttribute("aria-label","séparateur ×"); kx.tabIndex=-1;
+    kx.addEventListener("pointerdown", function(ev){
+      ev.preventDefault();
+      var v=i.value.replace(/\s+$/,"");
+      if(!v) return;
+      if(!/[x×*\/-]$/.test(v)) i.value=v+" x ";
+      try{ i.focus({preventScroll:true}); i.setSelectionRange(i.value.length,i.value.length); }catch(e){}
+      onc(i.value); sauver();
+    });
+    kx.addEventListener("click", function(ev){ ev.preventDefault(); });
+    w.appendChild(kx);
+  }
+  parent.appendChild(w);
   return i;
 }
 /* L'ecran est reconstruit a chaque appui. Sans memoire de ce qui etait deplie,
@@ -1373,7 +1422,6 @@ function vueClient(a){
   champ(b1,"Objet de la demande", V.client.objet, function(v){ V.client.objet=v; });
   var r3=el("div","rang"); b1.appendChild(r3);
   champ(r3,"Heure d'arrivée", V.h_arrivee, function(v){ V.h_arrivee=v; }, "time");
-  champ(r3,"Heure de départ", V.h_depart, function(v){ V.h_depart=v; }, "time");
 
   if(V.client.notes){
     var d=el("details","bloc"); d.appendChild(el("summary",null,"Demande d'origine"));
@@ -1426,8 +1474,21 @@ function vueMaison(a){
         M.plus, function(v){ M.plus=v; sauver(); rendre(); });
   b1.appendChild(el("p","mini","Plusieurs choix possibles sur la deuxième ligne : R+1 avec une cave et des combles perdus, c'est trois appuis. Ce que tu coches ici commande les niveaux proposés dans les pièces et dans le croquis."));
   var r=el("div","rang"); b1.appendChild(r);
-  champ(r,"Surface habitable (m²)", M.surface, function(v){ M.surface=v; }, "number");
-  champ(r,"Année de construction", V.client.annee, function(v){ V.client.annee=v; majCalculs(); }, "number");
+  var sp=surfacePieces();
+  champ(r,"Surface habitable (m²)", M.surface, function(v){ M.surface=v; }, "number", sp.n?"vide = somme des pièces ("+fmt(sp.s,1)+" m²)":"");
+  champ(r,"Année de construction", V.client.annee, function(v){ V.client.annee=v; V.client.annee_periode=""; majCalculs(); }, "number");
+  if(sp.n && nb(M.surface)===null)
+    b1.appendChild(el("p","mini","Surface habitable laissée vide : la fiche partira avec la somme des "+sp.n+" pièces relevées, "+fmt(sp.s,1)+" m². Saisis-la seulement si le client t'en donne une autre."));
+  var libP=PERIODES.map(function(p){ return p[0]; }).concat(["Inconnue"]);
+  puces(b1,"Année inconnue ? Choisis une tranche", libP, V.client.annee_periode, function(v){
+    if(v==="Inconnue"){ V.client.annee=""; V.client.annee_periode="Inconnue"; }
+    else { V.client.annee=String(anneeDePeriode(v)); V.client.annee_periode=v; }
+    sauver(); majCalculs(); rendre();
+  });
+  if(txt(V.client.annee_periode) && V.client.annee_periode!=="Inconnue")
+    b1.appendChild(el("p","mini","Année retenue pour les calculs : "+V.client.annee+", milieu de la tranche « "+V.client.annee_periode+" ». Corrige-la si tu apprends l'année exacte."));
+  else if(V.client.annee_periode==="Inconnue")
+    b1.appendChild(el("p","mini","Année inconnue : le G se prend sur la description de l'isolation (bloc suivant, épaisseurs). Remplis-la, sinon pas de puissances."));
 
   var b2=bloc(a,"Isolation \u2014 tranches Select Clim / Projipack",null,true);
   b2.appendChild(el("p","mini","Ces tranches sont celles des trois listes de Projipack. Elles donnent le coefficient G du logiciel."));
@@ -1440,15 +1501,16 @@ function vueMaison(a){
   champ(b2,"Coefficient G \u2014 laisser vide pour l'estimation", M.g, function(v){ M.g=v; majCalculs(); });
   var gv=coefG();
   var gi=el("p","mini");
-  if(gv===null) gi.innerHTML = "<span style='color:var(--mal)'>Renseigne l'ann\u00e9e de construction : sans elle le G ne se calcule pas.</span>";
+  if(gv===null) gi.innerHTML = "<span style='color:var(--mal)'>Renseigne l'ann\u00e9e de construction ou une tranche (bloc du dessus), ou d\u00e9cris l'isolation en \u00e9paisseurs : sans \u00e7a le G ne se calcule pas et aucune puissance ne sort.</span>";
+  else if(gEstime() && gBase(nb(V.client.annee))===null) gi.textContent = "G estim\u00e9 \u00e0 "+fmt(gv,2)+" W/m\u00b3.K d'apr\u00e8s la description de l'isolation (ann\u00e9e inconnue) \u2014 plus grossier que le mod\u00e8le Projipack, \u00e0 confirmer dans le logiciel.";
   else if(gEstime()) gi.textContent = "G estim\u00e9 \u00e0 "+fmt(gv,2)+" W/m\u00b3.K, reproduction du calcul de Projipack (\u00e0 \u00b10,01 pr\u00e8s sur onze relev\u00e9s). Une fois le logiciel pass\u00e9, recopie ici le vrai G.";
   else gi.textContent = "G saisi \u00e0 la main : "+fmt(gv,2)+" W/m\u00b3.K.";
   b2.appendChild(gi);
   if(M.mitoyen && M.mitoyen!=="Maison seule")
     b2.appendChild(el("p","mini","\u26a0 Projipack ne tient pas compte de la mitoyennet\u00e9 : le G ci-dessus est celui d'une maison seule. Un logement mitoyen d\u00e9perd nettement moins."));
 
-  if(aLotPac()){
-  var b2b=bloc(a,"Isolation \u2014 description pour la note de dimensionnement",null,false);
+  if(aLotPac() || gBase(nb(V.client.annee))===null){
+  var b2b=bloc(a,aLotPac()?"Isolation \u2014 description pour la note de dimensionnement":"Isolation \u2014 \u00e9paisseurs (ann\u00e9e inconnue : c'est ce qui donne le G)",null,gBase(nb(V.client.annee))===null);
   b2b.appendChild(el("p","mini","La grille du dossier d'aide ne conna\u00eet que des \u00e9paisseurs. C'est ce qui d\u00e9termine le cran d\u00e9clar\u00e9, et c'est ce qu'un contr\u00f4leur v\u00e9rifie sur place."));
   puces(b2b,"\u00c9paisseur d'isolant dans les murs",["Non isol\u00e9s","5 cm","10 cm et plus"],M.mur_cm,
         function(v){ M.mur_cm=v; sauver(); rendre(); });
@@ -1525,9 +1587,9 @@ function vueLot(a, L){
 
   var np=(L.photos||[]).length;
   var bp=bloc(a,"Photos du lot", np?np+" prise"+(np>1?"s":""):"", true);
-  bp.appendChild(el("p","mini","Un tap par photo attendue : l'appareil s'ouvre avec la bonne étiquette."));
+  bp.appendChild(el("p","mini","Un tap = photo prise au téléphone, à déposer dans le dossier Drive du client. Pour la prendre avec la tablette : « Photo avec la tablette »."));
   bp.appendChild(rangeePhotosAttendues(L));
-  var bAdd=el("button","btn mini","📷 Autre photo"); bAdd.type="button"; bAdd.style.marginTop="8px";
+  var bAdd=el("button","btn mini","📷 Photo avec la tablette"); bAdd.type="button"; bAdd.style.marginTop="8px";
   bAdd.onclick=function(){ demanderPhoto(L,null); };
   bp.appendChild(bAdd);
   var attendues={}; photosAttendues(L).forEach(function(e){ attendues[e]=true; });
@@ -1892,13 +1954,13 @@ function murs4(P){
 /* v3.6 — surface vitree d'un mur : la somme des ouvrants (largeur x hauteur en metres)
    quand il y en a, sinon la case m2 saisie a la main. */
 function vitreeMur(M){
-  var o=M.ouv||[], t=0, n=0;
+  var m=nb(M.vit); if(m!==null) return m;
+  var o=M.ouv||[], t=0;
   for(var i=0;i<o.length;i++){
     var l=nb(o[i].l), h=nb(o[i].h);
-    if(l!==null && h!==null){ t+=l*h; n++; }
+    if(l!==null && h!==null) t+=l*h;
   }
-  if(n) return t;
-  return nb(M.vit)||0;
+  return t;
 }
 function longueurMur(P,M){
   var v=nb(M.lg);
@@ -1906,6 +1968,42 @@ function longueurMur(P,M){
   if(M.auto==="lg") return nb(P.lg);
   if(M.auto==="la") return nb(P.la);
   return null;
+}
+/* somme des pieces relevees, annexes exclues — remplace la surface habitable si elle est vide */
+function surfacePieces(){
+  var s=0, n=0;
+  V.pieces.forEach(function(P){ if(P.annexe) return; var x=surfacePiece(P); if(x!==null){ s+=x; n++; } });
+  return {s:Math.round(s*10)/10, n:n};
+}
+function surfaceHabitable(){
+  var m=nb(V.maison.surface);
+  if(m!==null) return {v:m, origine:"saisie"};
+  var sp=surfacePieces();
+  return sp.n ? {v:sp.s, origine:"somme des "+sp.n+" pièces relevées"} : {v:null, origine:null};
+}
+/* murs dont la surface vitree depasse le mur : presque toujours une unite fausse (72 pour 0,72) */
+function mursIncoherents(){
+  var out=[];
+  V.pieces.forEach(function(P,i){
+    if(P.annexe) return;
+    P.murs.forEach(function(M){
+      var lgm=longueurMur(P,M), h=nb(P.hsp);
+      if(lgm===null||h===null) return;
+      var vit=vitreeMur(M);
+      if(vit>lgm*h) out.push({piece:txt(P.nom)||"Pièce "+(i+1), mur:M.nom, vit:vit, brut:lgm*h});
+    });
+  });
+  return out;
+}
+/* pieces chauffees sans aucun emetteur releve : soit un oubli, soit une piece froide a signaler */
+function piecesSansEmetteur(){
+  var out=[];
+  if(!aLotHydraulique()) return out;
+  V.pieces.forEach(function(P,i){
+    if(P.annexe || (P.rads||[]).length || surfacePiece(P)===null) return;
+    out.push(txt(P.nom)||"Pièce "+(i+1));
+  });
+  return out;
 }
 function surfacePiece(P){
   var s=nb(P.surf);
@@ -1926,16 +2024,23 @@ function cartePiece(a,P,idx){
 
   champ(w,"Nom de la pièce", P.nom, function(v){ P.nom=v; });
   var r=el("div","rang"); w.appendChild(r);
-  var iL=champ(r,"Longueur (m)", P.lg, function(v){ P.lg=v; majCalculs(); }, "number", "4,9 ou 4,9 x 2,7");
-  var il=champ(r,"Largeur (m)", P.la, function(v){ P.la=v; majCalculs(); }, "number");
-  var iH=champ(r,"Hauteur sous plafond (m)", P.hsp, function(v){ P.hsp=v; majCalculs(); }, "number");
-  iL.addEventListener("change", function(){
-    var c=eclaterCotes(this.value);
-    if(!c) return;
-    P.lg=c[0]; P.la=c[1]; if(c.length>2) P.hsp=c[2];
-    sauverTout(); rendre();
-    toast("Cotes réparties : "+c.join(" × ")+" m","ok");
-  });
+  var iL=champ(r,"Longueur (m)", P.lg, function(v){ P.lg=v; majCalculs(); }, "number", "4,9 ou 4,9 x 2,7", true);
+  var il=champ(r,"Largeur (m)", P.la, function(v){ P.la=v; majCalculs(); }, "number", "", true);
+  var iH=champ(r,"Hauteur sous plafond (m)", P.hsp, function(v){ P.hsp=v; majCalculs(); }, "number", "", true);
+  function eclaterVers(i, cles){
+    i.addEventListener("change", function(){
+      /* Chrome envoie un change quand un champ modifie au clavier est retire du DOM :
+         c'est ce que fait rendre() a chaque touche. On ne repartit que si le champ est
+         encore a l'ecran (Entree, ou appui ailleurs). */
+      if(RENDU_EN_COURS || !document.body.contains(this)) return;
+      var c=eclaterCotes(this.value);
+      if(!c) return;
+      for(var k=0;k<c.length && k<cles.length;k++) P[cles[k]]=c[k];
+      sauverTout(); rendre();
+      toast("Cotes réparties : "+c.join(" × ")+" m","ok");
+    });
+  }
+  eclaterVers(iL,["lg","la","hsp"]); eclaterVers(il,["la","hsp"]); eclaterVers(iH,["hsp"]);
   chainer([iL,il,iH]);
   /* F — les cotes dictees au Plaud : on note l'heure, le chiffrage sait ou chercher */
   var bpl=el("button","et"+(P.plaud?" on-ok":""), P.plaud ? "✓ Cotes dictées au Plaud vers "+heureCourte(P.plaud) : "🎙 Cotes dictées au Plaud");
@@ -1993,23 +2098,50 @@ function cartePiece(a,P,idx){
     var rm=el("div","rang"); mw.appendChild(rm);
     champ(rm,"Longueur si différente (m)", M.lg, function(v){ M.lg=v; majCalculs(); }, "number");
     M.ouv=M.ouv||[];
-    if(!M.ouv.length)
-      champ(rm,"Surface vitrée (m²)", M.vit, function(v){ M.vit=v; majCalculs(); }, "number");
-    /* J — les ouvrants en largeur x hauteur : l'appli fait la surface, pas la calculatrice */
-    M.ouv.forEach(function(O,io){
+    /* J (v3.8) — la ligne largeur x hauteur est la d'office pour chaque mur : la surface
+       se calcule, on ne la tape jamais. La case m2 n'apparait que si on la demande, ou
+       si une ancienne fiche l'a remplie. Une largeur tapee "1,2 x 1,5" remplit les deux. */
+    var lignes = M.ouv.length ? M.ouv : [{l:"",h:"",neuf:true}];
+    lignes.forEach(function(O,io){
       var ro=el("div","ouv"); mw.appendChild(ro);
-      var iol=champ(ro,"Ouvrant "+(io+1)+" — largeur (m)", O.l, function(v){ O.l=v; majCalculs(); }, "number");
-      var ioh=champ(ro,"Hauteur (m)", O.h, function(v){ O.h=v; majCalculs(); }, "number");
+      function fixe(){ if(O.neuf){ delete O.neuf; M.ouv.push(O); } }
+      var iol=champ(ro,(M.ouv.length>1?"Ouvrant "+(io+1)+" — largeur (m)":"Ouvrant — largeur (m)"), O.l,
+                    function(v){ fixe(); O.l=v; majCalculs(); }, "number", "1,2 ou 1,2 x 1,5", true);
+      var ioh=champ(ro,"Hauteur (m)", O.h, function(v){ fixe(); O.h=v; majCalculs(); }, "number");
+      iol.addEventListener("change", function(){
+        if(RENDU_EN_COURS || !document.body.contains(this)) return;
+        var c=eclaterCotes(this.value); if(!c) return;
+        fixe(); O.l=c[0]; O.h=c[1]; sauverTout(); rendre();
+      });
       chainer([iol,ioh]);
       var l=nb(O.l), hh=nb(O.h);
       ro.appendChild(el("span","res", (l!==null&&hh!==null) ? "= "+fmt(l*hh,2)+" m²" : "= ?"));
-      var so=el("button","btn mini d","✕"); so.type="button";
-      so.onclick=function(){ M.ouv.splice(io,1); sauverTout(); rendre(); };
-      ro.appendChild(so);
+      if(!O.neuf){
+        var so=el("button","btn mini d","✕"); so.type="button";
+        so.onclick=function(){ M.ouv.splice(io,1); sauverTout(); rendre(); };
+        ro.appendChild(so);
+      }
     });
-    var ao=el("button","btn mini","＋ Ouvrant (largeur × hauteur)"); ao.type="button"; ao.style.marginTop="6px";
+    var rb=el("div"); rb.style.marginTop="6px"; rb.style.display="flex"; rb.style.gap="6px"; rb.style.flexWrap="wrap";
+    var ao=el("button","btn mini","＋ Autre ouvrant"); ao.type="button";
     ao.onclick=function(){ M.ouv.push({l:"",h:""}); sauverTout(); rendre(); };
-    mw.appendChild(ao);
+    rb.appendChild(ao);
+    if(!(M.vitManuel || txt(M.vit))){
+      var am2=el("button","btn mini","m² déjà connus"); am2.type="button";
+      am2.onclick=function(){ M.vitManuel=true; sauverTout(); rendre(); };
+      rb.appendChild(am2);
+    }
+    mw.appendChild(rb);
+    if(M.vitManuel || txt(M.vit)){
+      var ivit=champ(mw,"Surface vitrée totale (m²) — si remplie, elle remplace les ouvrants", M.vit,
+                     function(v){ M.vit=v; majCalculs(); }, "number", "ou 1,2 x 1,5", true);
+      ivit.addEventListener("change", function(){
+        if(RENDU_EN_COURS || !document.body.contains(this)) return;
+        var c=eclaterCotes(this.value); if(!c) return;
+        M.ouv.push({l:c[0],h:c[1]}); M.vit=""; M.vitManuel=false; sauverTout(); rendre();
+        toast("Ouvrant "+c[0]+" × "+c[1]+" m ajouté","ok");
+      });
+    }
     if(M.type==="Extérieur")
       puces(mw,"Orientation (facultatif)",["Nord","Est","Sud","Ouest"],M.o,
             function(v){ M.o=v; sauver(); rendre(); });
@@ -2018,6 +2150,7 @@ function cartePiece(a,P,idx){
       var vit=vitreeMur(M);
       mw.appendChild(el("p","mini","Surface pleine : "+fmt(Math.max(0,brut-vit),2)+" m²"+
         (vit?" (brute "+fmt(brut,2)+" − vitrée "+fmt(vit,2)+(M.ouv.length?", "+M.ouv.length+" ouvrant"+(M.ouv.length>1?"s":""):"")+")":"")));
+      if(vit>brut){ var wv=el("p","mini","⚠ La surface vitrée dépasse le mur ("+fmt(vit,2)+" m² pour "+fmt(brut,2)+" m²) : vérifie l'unité, mètres et non centimètres."); wv.style.color="var(--mal)"; mw.appendChild(wv); }
     }
     cm.appendChild(mw);
   });
@@ -2135,13 +2268,19 @@ function cartePiece(a,P,idx){
   }
   w.appendChild(zc);
 
-  var zp=el("div");
-  var bp=el("button","btn mini","📷 Photo de la pièce"); bp.type="button";
+  var zp=el("div"); zp.style.display="flex"; zp.style.gap="6px"; zp.style.flexWrap="wrap";
+  var btel=el("button","et"+(P.photosTel?" on-ok":""), P.photosTel?"📱 ✓ Photos faites au téléphone":"📱 Photos faites au téléphone"); btel.type="button";
+  btel.onclick=function(){ P.photosTel=!P.photosTel; sauverTout(); rendre(); };
+  zp.appendChild(btel);
+  var bp=el("button","btn mini","📷 Photo avec la tablette"); bp.type="button";
   bp.onclick=function(){ choisirEtiquette(ETIQ.piece, function(e){ prendrePhoto(P,e,null); }); };
   zp.appendChild(bp);
   if(P.photos.length) zp.appendChild(vignettes(P,P.photos));
   w.appendChild(zp);
 
+  if(!P.annexe && aLotHydraulique() && !(P.rads||[]).length && surfacePiece(P)!==null){
+    var se=el("p","mini","Aucun émetteur relevé dans cette pièce — pièce froide à signaler, ou oubli ?"); se.style.color="var(--att)"; w.appendChild(se);
+  }
   var calc=calcPiece(P);
   if(P.annexe){
     var ca=el("div","calc");
@@ -2195,11 +2334,26 @@ function dParoi(quoi, val){
   var t=D_PAROI[quoi], v=String(val||"").replace(/\u00e8/g,"e").replace(/\u00e9/g,"e");
   return t[v]!==undefined ? t[v] : 0;
 }
+/* v3.9 — l'annee exacte est souvent inconnue (« une vieille ferme, debut 1900 ») :
+   une tranche donne une annee representative pour le modele G. Sans rien, la
+   description de l'isolation (grille de la note de dimensionnement) sert de repli. */
+var PERIODES = [["Avant 1948",1930],["1948-1974",1961],["1975-1988",1981],["1989-2000",1995],["2001-2012",2006],["Après 2012",2018]];
+function anneeDePeriode(lib){ for(var i=0;i<PERIODES.length;i++) if(PERIODES[i][0]===lib) return PERIODES[i][1]; return null; }
+function anneeTexte(){
+  var a=txt(V.client.annee), p=txt(V.client.annee_periode);
+  if(a) return a+(p && p!=="Inconnue" ? " (tranche "+p+", approximatif)" : "");
+  return p==="Inconnue" ? "inconnue" : "";
+}
+function origineG(){
+  if(nb(V.maison.g)!==null) return "saisi à la main";
+  if(gBase(nb(V.client.annee))!==null) return "estimé par l'appli (modèle Projipack)";
+  return "estimé d'après la description de l'isolation (année inconnue)";
+}
 function coefG(){
   var manuel=nb(V.maison.g);
   if(manuel!==null) return manuel;
   var g0=gBase(nb(V.client.annee));
-  if(g0===null) return null;
+  if(g0===null){ var cn=cranNDD(); return cn.g!==null ? cn.g : null; }
   var d = dParoi("murs",V.maison.isol_murs) + dParoi("toit",V.maison.isol_toit) + dParoi("fen",V.maison.isol_fen);
   var n = (dParoi("murs",V.maison.isol_murs)?1:0) + (dParoi("toit",V.maison.isol_toit)?1:0) + (dParoi("fen",V.maison.isol_fen)?1:0);
   var C = n>=3 ? 1.18 : (n===2 ? 1.09 : 1.00);
@@ -2381,8 +2535,8 @@ function vueNdd(a){
 
   var b1=bloc(a,"B\u00e9n\u00e9ficiaire",null,true);
   puces(b1,"Civilit\u00e9",["M.","Mme","M. et Mme"],A.civilite,function(v){ A.civilite=v; sauver(); rendre(); });
-  b1.appendChild(el("p","mini","Nom : "+(txt(V.client.nom)||"\u2014")+" \u00b7 Adresse des travaux : "+
-    (txt(V.client.adresse)||"\u2014")+" "+txt(V.client.ville)));
+  champ(b1,"Nom du b\u00e9n\u00e9ficiaire \u2014 le client, sauf si c'est quelqu'un d'autre", A.beneficiaire, function(v){ A.beneficiaire=v; }, "text", txt(V.client.nom)||"nom du client");
+  b1.appendChild(el("p","mini","Adresse des travaux : "+(txt(V.client.adresse)||"\u2014")+" "+txt(V.client.ville)));
   champ(b1,"N\u00b0 de parcelle \u2014 seulement si l'adresse est un lieu-dit sans num\u00e9ro", A.parcelle, function(v){ A.parcelle=v; });
 
   var b2=bloc(a,"\u00c9tat du logement",null,true);
@@ -2430,7 +2584,7 @@ function vueNdd(a){
 
   var b5=bloc(a,"La machine retenue",null,true);
   var r2=el("div","rang"); b5.appendChild(r2);
-  champ(r2,"Temp\u00e9rature d'arr\u00eat de la PAC (\u00b0C)", A.pac_arret, function(v){ A.pac_arret=v; }, "number");
+  champ(r2,"Temp\u00e9rature ext\u00e9rieure d'arr\u00eat de la PAC (\u00b0C)", A.pac_arret, function(v){ A.pac_arret=v; }, "number", "ex. -20, sur la fiche produit");
   champ(r2,"Puissance de la PAC (kW)", A.pac_puissance, function(v){ A.pac_puissance=v; majCalculs(); rendre(); }, "number");
   puces(b5,"Cette puissance est donn\u00e9e",["\u00c0 T base","\u00c0 \u22127 \u00b0C","Nominale"],A.pac_base,
         function(v){ A.pac_base=v; sauver(); rendre(); });
@@ -2465,7 +2619,7 @@ function texteNdd(){
   function l(k,v){ if(v!==null&&v!==undefined&&String(v).trim()!=="") L.push(k+" : "+v); }
   L.push("NOTE DE DIMENSIONNEMENT \u2014 gabarit MaPrime Facile");
   L.push("");
-  l("B\u00e9n\u00e9ficiaire", txt(A.civilite)+" "+txt(V.client.nom));
+  l("B\u00e9n\u00e9ficiaire", txt(A.civilite)+" "+(txt(A.beneficiaire)||txt(V.client.nom)));
   l("Adresse des travaux", txt(V.client.adresse)+" "+txt(V.client.ville));
   l("N\u00b0 de parcelle", A.parcelle);
   L.push("");
@@ -2505,8 +2659,10 @@ function vueNotes(a){
   var t2=el("textarea"); t2.value=V.notes.reserves||"";
   t2.oninput=function(){ V.notes.reserves=this.value; sauver(); };
   a.appendChild(t2);
-  var r=el("div","rang"); a.appendChild(r);
-  champ(r,"Heure de départ", V.h_depart, function(v){ V.h_depart=v; }, "time");
+  /* v3.9 — ce que le bureau devra demander au client : facture, avis d'imposition… */
+  pucesMulti(a,"À récupérer auprès du client",["Dernière facture d'énergie","Avis d'imposition du foyer","Photos du client","Plans / cadastre","Devis concurrent"],
+    V.docs, function(v){ V.docs=v; sauver(); rendre(); });
+  a.appendChild(el("p","mini","Ce qui est coché part dans le brief : le bureau le demande au client dans le mail des pièces, tu n'as pas à y repenser."));
 }
 
 /* ============================================================
@@ -2516,27 +2672,33 @@ function vueEnvoi(a){
   a.appendChild(el("h2",null,"Vérifier et envoyer"));
   a.appendChild(el("p","aide","Rien n'est obligatoire ici. Ce qui suit est ce que je regarderais avant de partir — tu envoies quand tu veux, même à moitié rempli."));
   var pb=[];
-  if(!txt(V.client.nom) && nomClient()) pb.push({t:"att", m:"Le nom du client est vide : la fiche partira sous « "+nomClient()+" » (société Axonaut)."});
-  else if(!nomClient()) pb.push({t:"att", m:"Le nom du client n'est pas renseigné — la fiche partira sous « sans nom »."});
-  if(!V.lots.length) pb.push({t:"att", m:"Aucun lot n'a été coché."});
+  if(!txt(V.client.nom) && nomClient()) pb.push({t:"att", vue:"client", m:"Le nom du client est vide : la fiche partira sous « "+nomClient()+" » (société Axonaut)."});
+  else if(!nomClient()) pb.push({t:"att", vue:"client", m:"Le nom du client n'est pas renseigné — la fiche partira sous « sans nom »."});
+  if(!V.lots.length) pb.push({t:"att", vue:"client", m:"Aucun lot n'a été coché."});
   if(V.aides.souhaite && !txt(V.client.email))
-    pb.push({t:"att", m:"Le client veut des aides mais son e-mail manque : la liste des pièces ne pourra pas lui partir."});
-  manquesNdd().forEach(function(m){ pb.push({t:"att", m:m}); });
+    pb.push({t:"att", vue:"client", m:"Le client veut des aides mais son e-mail manque : la liste des pièces ne pourra pas lui partir."});
+  if(V.pieces.length && coefG()===null)
+    pb.push({t:"mal", vue:"maison", m:"Ni année de construction, ni tranche, ni isolation en épaisseurs : aucune puissance ne sort de la fiche."});
+  mursIncoherents().forEach(function(x){
+    pb.push({t:"mal", vue:"pieces", m:x.piece+", "+x.mur+" : surface vitrée "+fmt(x.vit,2)+" m² pour un mur de "+fmt(x.brut,2)+" m² — unité fausse ?"});
+  });
+  var pse=piecesSansEmetteur();
+  if(pse.length) pb.push({t:"att", vue:"pieces", m:"Sans émetteur relevé : "+pse.join(", ")+" — pièce froide à signaler, ou oubli ?"});
+  manquesNdd().forEach(function(m){ pb.push({t:"att", vue:"ndd", m:m}); });
   metreLignes().forEach(function(x){
     if(x.total!==null && x.detail.length && x.detail.join(" ").indexOf("à préciser")>=0)
-      pb.push({t:"att", m:x.nature+" : "+fmt(x.total,1)+" m relevés, section à préciser"});
+      pb.push({t:"att", vue:"croquis", m:x.nature+" : "+fmt(x.total,1)+" m relevés, section à préciser"});
   });
   photosManquantes().forEach(function(x){
-    pb.push({t:"att", m:"Photo manquante — "+x.lot+" : "+x.manque.join(", ")});
+    pb.push({t:"att", vue:x.lid, m:"Photo manquante — "+x.lot+" : "+x.manque.join(", ")});
   });
-  if(!txt(V.h_depart)) pb.push({t:"att", m:"L'heure de départ n'est pas notée."});
 
   var ouv=[];
   V.lots.forEach(function(L){
     questions(L).forEach(function(q){
       var r=L.rep[q.k];
-      if(!r || (!r.e && !txt(r.v))) ouv.push({lot:(L.nom||defLot(L.cle).court), q:q.l, t:"vide"});
-      else if(r.e==="voir") ouv.push({lot:(L.nom||defLot(L.cle).court), q:q.l, t:"voir"});
+      if(!r || (!r.e && !txt(r.v))) ouv.push({lot:(L.nom||defLot(L.cle).court), q:q.l, t:"vide", lid:L.lid});
+      else if(r.e==="voir") ouv.push({lot:(L.nom||defLot(L.cle).court), q:q.l, t:"voir", lid:L.lid});
     });
   });
   var nVoir=ouv.filter(function(x){ return x.t==="voir"; }).length;
@@ -2545,24 +2707,35 @@ function vueEnvoi(a){
   if(nVide) pb.push({t:"att", m:nVide+" question"+(nVide>1?"s":"")+" sans réponse."});
 
   var nph=0;
-  V.lots.forEach(function(L){ nph+=(L.photos||[]).length; });
-  V.pieces.forEach(function(P){ nph+=(P.photos||[]).length; });
-  if(!nph) pb.push({t:"att", m:"Aucune photo prise."});
+  V.lots.forEach(function(L){ nph+=(L.photos||[]).length+(L.photosTel||[]).length; });
+  V.pieces.forEach(function(P){ nph+=(P.photos||[]).length+(P.photosTel?1:0); });
+  if(!nph) pb.push({t:"att", vue:V.lots.length?V.lots[0].lid:"client", m:"Aucune photo — ni tablette, ni « prise au téléphone » cochée."});
 
   if(!pb.length){
     var ok=el("div","alerte ok"); ok.textContent="Rien ne manque. La fiche est complète."; a.appendChild(ok);
   }
-  pb.forEach(function(x){ var d=el("div","alerte "+x.t); d.textContent=x.m; a.appendChild(d); });
+  /* v3.9 — chaque manque emmene directement la ou il se corrige */
+  pb.forEach(function(x){
+    var d=el("div","alerte "+x.t+(x.vue?" lien":""));
+    d.appendChild(el("span",null,x.m));
+    if(x.vue){ var bl=el("button","btn mini","→ Corriger"); bl.type="button"; bl.onclick=function(){ aller(x.vue); }; d.appendChild(bl); }
+    a.appendChild(d);
+  });
 
   if(ouv.length){
-    var det=bloc(a,"Le détail des points ouverts", ouv.length+"", false);
+    var det=bloc(a,"Le détail des points ouverts — un appui ouvre le lot", ouv.length+"", false);
     ouv.forEach(function(x){
-      var p=el("p","mini",(x.t==="voir"?"? ":"– ")+x.lot+" · "+x.q);
-      p.style.margin="3px 0"; det.appendChild(p);
+      var p=el("button","ptouv",(x.t==="voir"?"? ":"– ")+x.lot+" · "+x.q); p.type="button";
+      p.onclick=function(){ aller(x.lid); };
+      det.appendChild(p);
     });
   }
   var sh=nb(V.maison.surface), sp=0, npc=0;
   V.pieces.forEach(function(P){ if(P.annexe) return; var x=surfacePiece(P); if(x!==null){ sp+=x; npc++; } });
+  if(sh===null && npc){
+    var si=el("div","calc"); si.innerHTML="<b>Surface habitable : "+fmt(sp,1)+" m²</b> · <span class='mini'>somme des "+npc+" pièces relevées, faute de surface saisie dans Maison</span>";
+    a.appendChild(si);
+  }
   if(sh!==null && npc>=2 && sp>0){
     var ec=Math.abs(sp-sh)/sh;
     if(ec>0.2){
@@ -2839,10 +3012,17 @@ function rangeePhotosAttendues(L){
       b.onclick=function(){ L.photos=L.photos.filter(function(x){ return x.id!==p.id; }); sauverTout(); rendre(); };
       v.appendChild(b); w.appendChild(v);
     } else {
-      var bt=el("button","phatt"); bt.type="button";
-      bt.appendChild(el("span","ic",iconePhoto(e)));
+      /* v3.9 — Remi prend ses photos au telephone et les depose dans Drive : un tap = « prise au telephone » */
+      var tel=(L.photosTel||[]).indexOf(e)>=0;
+      var bt=el("button","phatt"+(tel?" on":"")); bt.type="button";
+      bt.appendChild(el("span","ic",tel?"📱✓":iconePhoto(e)));
       bt.appendChild(document.createTextNode(e));
-      bt.onclick=function(){ prendrePhoto(L,e,null); };
+      bt.onclick=function(){
+        L.photosTel=L.photosTel||[];
+        var i=L.photosTel.indexOf(e);
+        if(i>=0) L.photosTel.splice(i,1); else L.photosTel.push(e);
+        sauverTout(); rendre();
+      };
       w.appendChild(bt);
     }
   });
@@ -2973,7 +3153,8 @@ function payload(statut){
     return {lot:L.nom||defLot(L.cle).label, cle:L.cle, reponses:r2,
       a_trancher: gazHesite(L) || undefined,
       versions_a_chiffrer: gazHesite(L) ? versionsGaz(L) : undefined,
-      photos:(L.photos||[]).map(function(p){ return {etiquette:p.et, question:p.q}; })};
+      photos:(L.photos||[]).map(function(p){ return {etiquette:p.et, question:p.q}; }),
+      photos_telephone:(L.photosTel||[])};
   });
   var pieces = V.pieces.map(function(P,i){
     var c=calcPiece(P);
@@ -3002,7 +3183,8 @@ function payload(statut){
       predimensionnement: c.vol ? {deperditions_W:Math.round(c.dt), chaud_W:Math.round(c.chaud),
         froid_W:Math.round(c.froid), debit_m3h:Math.round(c.debit),
         mention:"pré-dimensionnement, à confirmer par Select Clim ou Projipack"} : null,
-      photos:(P.photos||[]).map(function(p){ return {etiquette:p.et}; })};
+      photos:(P.photos||[]).map(function(p){ return {etiquette:p.et}; }),
+      photos_telephone: !!P.photosTel};
   });
   var t=totaux(), tc=totauxClim(), ve=volumeEau();
   return {
@@ -3017,17 +3199,18 @@ function payload(statut){
     client:{nom:nomClient()||"sans nom", telephone:propre(V.client.tel), email:propre(V.client.email),
       adresse:propre(V.client.adresse), commune:propre(V.client.ville),
       type_logement:propre(V.client.logement), statut:propre(V.client.statut),
-      annee_construction:nb(V.client.annee), objet:propre(V.client.objet),
+      annee_construction:nb(V.client.annee), annee_periode:V.client.annee_periode||null, objet:propre(V.client.objet),
       dossier_drive:propre(V.client.drive)},
     maison:{forme:V.maison.forme, mitoyennete:V.maison.mitoyen, niveaux:V.maison.etages,
       niveaux_complementaires:(V.maison.plus||[]),
       type_isolation:V.maison.typeisol, isolation_murs:V.maison.isol_murs,
       isolation_toiture:V.maison.isol_toit, isolation_fenetres:V.maison.isol_fen,
-      surface_habitable_m2:nb(V.maison.surface), acces:propre(V.maison.acces),
+      surface_habitable_m2:surfaceHabitable().v, surface_habitable_origine:surfaceHabitable().origine,
+      surface_pieces_m2:surfacePieces().n?surfacePieces().s:null, acces:propre(V.maison.acces),
       cloisons:propre(V.maison.cloisons), compteur_eau:propre(V.maison.compteur),
       pression_bar:nb(V.maison.pression), tableau_electrique:propre(V.maison.tableau),
       amiante:propre(V.maison.amiante), km_depuis_raville:nb(V.maison.km),
-      coefficient_G:coefG(), coefficient_G_origine: gEstime()?"estimé par l'appli (modèle Projipack)":"saisi à la main",
+      coefficient_G:coefG(), coefficient_G_origine: origineG(),
       isolation_murs_cm:V.maison.mur_cm, isolation_combles_cm:V.maison.toit_cm,
       plancher_bas:V.maison.plancher_cm, vitrage:V.maison.vitrage,
       temperature_base_C:tBase(), altitude_m:nb(V.maison.alt), temperature_confort_C:tConfort(),
@@ -3041,7 +3224,7 @@ function payload(statut){
     note_de_dimensionnement: besoinNdd() ? (function(){
       var N=ndd();
       return {gabarit:"NDD MPF — MaPrime Facile", a_remplir:true,
-        beneficiaire:{civilite:V.aides.civilite, nom:propre(V.client.nom),
+        beneficiaire:{civilite:V.aides.civilite, nom:propre(V.aides.beneficiaire||V.client.nom),
           adresse:propre(V.client.adresse), commune:propre(V.client.ville),
           parcelle:propre(V.aides.parcelle)},
         etat_logement:N.cran.libelle||null, coefficient_G:N.cran.g,
@@ -3108,6 +3291,8 @@ function payload(statut){
         symboles:r.symboles, reperes:r.reperes, avec_photo_de_fond:!!x.C.photo};
     }),
     notes:{ce_que_je_retiens:propre(V.notes.retiens), reserves:propre(V.notes.reserves)},
+    documents_a_demander:(V.docs||[]),
+    pieces_sans_emetteur:piecesSansEmetteur(),
     points_a_confirmer: pointsOuverts(),
     postes_obligatoires: postesObligatoires(),
     prompt_select_clim: aLotClim() ? propre(promptSelectClim()) : null,
@@ -3159,9 +3344,10 @@ function photosManquantes(){
     if(!att.length) return;
     var prises={};
     (L.photos||[]).forEach(function(p){ prises[p.et]=true; });
+    (L.photosTel||[]).forEach(function(e){ prises[e]=true; });
     var abs=[];
     att.forEach(function(e){ if(!prises[e]) abs.push(e); });
-    if(abs.length) out.push({lot:(L.nom||defLot(L.cle).court), manque:abs});
+    if(abs.length) out.push({lot:(L.nom||defLot(L.cle).court), manque:abs, lid:L.lid});
   });
   return out;
 }
@@ -3207,7 +3393,7 @@ function promptSelectClim(){
   L.push("   Attendre une seconde après le département avant de taper la ville.");
   L.push("3. Le bâtiment :");
   L.push("   - Température de confort : 20");
-  L.push("   - Année de construction : "+(txt(V.client.annee)||"à préciser"));
+  L.push("   - Année de construction : "+(anneeTexte()||"à préciser"));
   L.push("   - Isolation des murs : "+(V.maison.isol_murs||"Pas de rénovation"));
   L.push("   - Isolation de la toiture : "+(V.maison.isol_toit||"Pas de rénovation"));
   L.push("   - Isolation des fenêtres : "+(V.maison.isol_fen||"Pas de rénovation"));
@@ -3277,8 +3463,8 @@ function promptProjipack(){
   L.push("Commune : "+(txt(V.client.ville)||"\u00e0 pr\u00e9ciser")+" (Moselle 57, zone H1b)");
   L.push("Altitude : "+(txt(V.maison.alt)||"\u00e0 laisser sur la valeur trouv\u00e9e par le logiciel"));
   L.push("Temp\u00e9rature de base : "+fmt(tBase())+" \u00b0C");
-  L.push("Ann\u00e9e de construction : "+(txt(V.client.annee)||"\u00c0 PR\u00c9CISER \u2014 bloquant"));
-  L.push("Surface habitable : "+(txt(V.maison.surface)||"\u00e0 pr\u00e9ciser")+" m\u00b2");
+  L.push("Ann\u00e9e de construction : "+(anneeTexte()||"\u00c0 PR\u00c9CISER \u2014 bloquant"));
+  L.push("Surface habitable : "+(surfaceHabitable().v!==null ? fmt(surfaceHabitable().v,1)+" m\u00b2 ("+surfaceHabitable().origine+")" : "\u00e0 pr\u00e9ciser"));
   L.push("Hauteur sous plafond : "+(fmt(hspMoyenne(),2)||"2,50")+" m");
   L.push("Forme : "+(V.maison.forme||"?")+" \u00b7 Mitoyennet\u00e9 : "+(V.maison.mitoyen||"?")+
          " \u00b7 Niveaux : "+(V.maison.etages||"?")+
@@ -3365,7 +3551,7 @@ function resumeTexte(){
   ligne("Objet", V.client.objet);
   ligne("Opportunité", V.opp_titre);
   ligne("Date", V.date);
-  ligne("Sur place", (V.h_arrivee||"?")+" → "+(V.h_depart||"?"));
+  ligne("Sur place", txt(V.h_depart) ? (V.h_arrivee||"?")+" → "+V.h_depart : (V.h_arrivee||""));
   ligne("Technicien", cfg.technicien);
   var lm=metreLignes();
   if(lm.length){
@@ -3401,8 +3587,9 @@ function resumeTexte(){
   L.push("-- LA MAISON --");
   ligne("Type de logement", V.client.logement);
   ligne("Statut", V.client.statut);
-  ligne("Année de construction", V.client.annee);
-  ligne("Surface habitable", V.maison.surface ? V.maison.surface+" m²" : "");
+  ligne("Année de construction", anneeTexte());
+  var shb=surfaceHabitable();
+  ligne("Surface habitable", shb.v!==null ? fmt(shb.v,1)+" m²"+(shb.origine!=="saisie"?" ("+shb.origine+")":"") : "");
   ligne("Forme", V.maison.forme);
   ligne("Mitoyenneté", V.maison.mitoyen);
   ligne("Niveaux", V.maison.etages);
@@ -3431,6 +3618,7 @@ function resumeTexte(){
     });
     var ph=(Lo.photos||[]);
     if(ph.length) L.push("Photos : "+ph.map(function(p){ return p.et; }).join(", "));
+    if((Lo.photosTel||[]).length) L.push("Photos prises au téléphone (dans le dossier Drive) : "+Lo.photosTel.join(", "));
   });
 
   if(V.pieces.length){
@@ -3461,6 +3649,7 @@ function resumeTexte(){
       if(P.clim && P.clim.traite) L.push("   clim : "+P.clim.traite+(P.clim.mode?" ("+P.clim.mode+")":"")+
         (P.clim.empl?" — "+P.clim.empl:"")+(P.clim.liaison?" — liaison "+P.clim.liaison+" ml":""));
       if((P.photos||[]).length) L.push("   photos : "+P.photos.map(function(p){ return p.et; }).join(", "));
+      if(P.photosTel) L.push("   photos faites au téléphone (dans le dossier Drive)");
     });
     var t2=totaux(), tc=totauxClim(), ve=volumeEau();
     L.push("TOTAL : "+fmt(t2.vol,1)+" m³ — déperditions ~"+fmt(t2.dt)+" W — chaud ~"+fmt(t2.chaud)+
@@ -3478,7 +3667,7 @@ function resumeTexte(){
     }
     L.push("VOLUME D'EAU estimé : "+fmt(ve.total)+" L ("+ve.detail+") → "+
       Math.max(1,Math.ceil(ve.total/100))+" bidon(s) d'inhibiteur");
-    L.push("(pré-dimensionnement · G "+(gEstime()?"estimé":"saisi à la main")+" à "+fmt(coefG(),2)+
+    L.push("(pré-dimensionnement · G "+origineG()+(coefG()!==null?" à "+fmt(coefG(),2):" — NON CALCULÉ, année et isolation manquantes")+
       " · ratio froid "+ratioFroid()+" W/m³ — à confirmer par Select Clim ou Projipack)");
   }
 
@@ -3490,6 +3679,9 @@ function resumeTexte(){
   L.push(""); L.push("-- NOTES --");
   ligne("Ce que je retiens", V.notes.retiens);
   ligne("Réserves", V.notes.reserves);
+  ligne("À récupérer auprès du client", (V.docs||[]).join(", "));
+  var pse=piecesSansEmetteur();
+  if(pse.length) ligne("Pièces sans émetteur relevé", pse.join(", ")+" — pièce froide ou oubli, à trancher");
   L.push(""); L.push("-- POSTES À NE PAS OUBLIER --");
   postesObligatoires().forEach(function(o){ L.push("• "+o); });
   return L.join("\n");
@@ -3696,6 +3888,9 @@ function briefChiffrage(){
     L.push("7. PAC : vérifier que le modèle figure sur la liste d'agrément ADEME (bonus-pac.ademe.fr).");
     L.push("   Depuis le 1er septembre 2026, la prime CEE bonifiée l'exige, et c'est la date de signature");
     L.push("   du devis qui fait foi. Le numéro d'agrément va sur la facture et sur l'attestation sur l'honneur.");
+  }
+  if((V.docs||[]).length){
+    L.push("7b. À demander au client dans le mail des pièces : "+V.docs.join(", ")+".");
   }
   var LH=lotGazHesite();
   if(LH){
@@ -6343,7 +6538,8 @@ function adapterPieces(C){
   var niv=C.niv===undefined?1:C.niv, ps=[];
   C.el.forEach(function(E){ if(E.t==="piece" && nivDe(E)===niv && !E.deduit && !E.poly) ps.push(E); });
   if(ps.length<2) return 0;
-  var seuil = C.ech ? Math.min(0.05, 0.45*C.ech.px/C.ech.m) : 0.03;
+  /* v3.9 — 45 cm etait trop peu pour des pieces posees « a peu pres » au doigt : 1,5 m */
+  var seuil = C.ech ? Math.min(0.12, 1.5*C.ech.px/C.ech.m) : 0.06;
   ps.sort(function(a,b){ return b.w*b.h - a.w*a.h; });
   var fixes=[ps[0]], n=0;
   function chev(a1,a2,b1,b2){ return Math.min(a2,b2)-Math.max(a1,b1) > -seuil; }
@@ -6678,7 +6874,9 @@ window.KARE = {
   symSousBoite:symSousBoite, nomClient:nomClient, planEnsemble:planEnsemble,
   climEstChauffage:climEstChauffage, bilanClim:bilanClim, vitreeMur:vitreeMur, eclaterCotes:eclaterCotes,
   photosAttendues:photosAttendues, toutAuRdc:toutAuRdc, postesObligatoires:postesObligatoires, pointsOuverts:pointsOuverts,
-  gazHesite:gazHesite, versionsGaz:versionsGaz, lotGazHesite:lotGazHesite, aLotPac:aLotPac
+  gazHesite:gazHesite, versionsGaz:versionsGaz, lotGazHesite:lotGazHesite, aLotPac:aLotPac, champ:champ,
+  surfacePieces:surfacePieces, surfaceHabitable:surfaceHabitable, mursIncoherents:mursIncoherents,
+  piecesSansEmetteur:piecesSansEmetteur, anneeTexte:anneeTexte, origineG:origineG
 };
 
 rendre();
