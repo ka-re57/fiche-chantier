@@ -269,6 +269,8 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .ph button:active{background:rgba(0,0,0,.88);transform:scale(.88)}
 .crc:active{transform:scale(.88)}
 .crtitre:active{opacity:.55}
+.ph .phvide{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:12px;color:#555;background:#eee;text-align:center;padding:4px;box-sizing:border-box}
+.reprises{display:grid;gap:6px;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -293,7 +295,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "3.9";
+var VERSION = "4.0";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -758,7 +760,7 @@ function poidsFiche(F){
 var STOCK_MAX = 5*1024*1024;
 function ko(n){ return fmt(n/1024,0)+" Ko"; }
 
-var cfg = lire(CLE_CFG, {webhook:"", webhookListe:"", webhookPhoto:"", secret:"", code:"1234", technicien:"Rémi KATA", veille:"oui", stylet:"oui"});
+var cfg = lire(CLE_CFG, {webhook:"", webhookListe:"", webhookPhoto:"", webhookReprise:"", secret:"", code:"1234", technicien:"Rémi KATA", veille:"oui", stylet:"oui"});
 var liste = lire(CLE_LISTE, {maj:null, chantiers:[]});
 var fiches = lire(CLE_FICHES, []);
 
@@ -2788,6 +2790,14 @@ function vueEnvoi(a){
   a.appendChild(bb);
   a.appendChild(el("p","mini","Tout le relevé en un seul texte, avec les consignes de chiffrage KA-RÉ et les prompts Select Clim ou Projipack. À coller directement dans une conversation Claude."));
 
+  if(cfg.webhookReprise){
+    var bm=el("button","btn p large","☁ Sauvegarder pour le bureau"); bm.type="button";
+    bm.onclick=function(){ sauvegarderPourBureau(false).then(function(){ rendre(); }); };
+    a.appendChild(bm);
+    a.appendChild(el("p","mini", V.sauvegardeMake
+      ? "Dernière sauvegarde pour le bureau : "+heureCourte(new Date(V.sauvegardeMake).toISOString())+". Sur le PC : accueil → « ⤒ Reprendre » → la fiche est dans la liste."
+      : "Envoie la fiche telle quelle dans la mémoire Make. Sur le PC : accueil → « ⤒ Reprendre » → elle est dans la liste. Un brouillon envoyé fait la même chose tout seul."));
+  }
   var bt2=el("button","btn large","⤓ Enregistrer la fiche pour la reprendre ailleurs"); bt2.type="button";
   bt2.onclick=function(){
     telecharger(slug(V.date)+"_"+slug(V.client.nom||"chantier")+"_fiche.json", exporterFiche(), "application/json");
@@ -2815,6 +2825,30 @@ function ouvrirReprise(){
   var dt=$("#dlgTexte"), ct=$("#corpsTexte");
   dt.querySelector(".dlg-tete").textContent="Reprendre une fiche";
   ct.innerHTML="";
+  if(cfg.webhookReprise){
+    ct.appendChild(el("h3",null,"Sauvegardées pour le bureau"));
+    var zone=el("div","reprises"); zone.appendChild(el("p","mini","Recherche des fiches sauvegardées…")); ct.appendChild(zone);
+    listerReprises(function(r){
+      zone.innerHTML="";
+      if(!r.ok){ zone.appendChild(el("p","mini mal","Liste indisponible : "+r.m)); return; }
+      if(!r.liste.length){ zone.appendChild(el("p","mini","Aucune fiche sauvegardée pour le bureau. Sur la tablette : « Vérifier et envoyer » → « ☁ Sauvegarder pour le bureau », ou envoie un brouillon.")); return; }
+      r.liste.forEach(function(x){
+        var b=el("button","btn large", "⤒ "+(x.client||"sans nom")+" — "+(x.date||"")
+          +"  ·  sauvegardée "+(x.maj?heureCourte(new Date(x.maj).toISOString()):"")+(x.appareil?" ("+x.appareil+")":""));
+        b.type="button";
+        b.onclick=function(){
+          b.disabled=true; b.textContent="Chargement…";
+          reprendreDepuisMake(x.fiche_id, function(res){
+            if(!res.ok){ b.disabled=false; b.textContent="⤒ "+(x.client||"sans nom"); toast(res.m,"mal"); return; }
+            dt.close(); aller("client");
+            toast((res.remplace?"Fiche mise à jour : ":"Fiche reprise : ")+res.nom,"ok");
+          });
+        };
+        zone.appendChild(b);
+      });
+    });
+    ct.appendChild(el("h3",null,"Par fichier ou par code"));
+  }
   ct.appendChild(el("p","mini","Ouvre le fichier enregistré depuis l'autre appareil, ou colle le code de la fiche. Si la fiche existe déjà ici, la plus récente des deux est gardée."));
   var bf=el("button","btn p large","📂 Ouvrir un fichier de fiche"); bf.type="button";
   bf.onclick=function(){
@@ -3006,7 +3040,8 @@ function rangeePhotosAttendues(L){
     var prises=ph.filter(function(p){ return p.et===e; });
     if(prises.length){
       var p=prises[0], v=el("div","ph att");
-      var im=el("img"); im.src=p.data; im.alt=e; v.appendChild(im);
+      if(p.data){ var im=el("img"); im.src=p.data; im.alt=e; v.appendChild(im); }
+      else v.appendChild(el("span","phvide","📱 sur la tablette"));
       v.appendChild(el("span","lg",e+(prises.length>1?" ×"+prises.length:"")));
       var b=el("button",null,"✕"); b.type="button";
       b.onclick=function(){ L.photos=L.photos.filter(function(x){ return x.id!==p.id; }); sauverTout(); rendre(); };
@@ -3046,7 +3081,8 @@ function vignettes(cible, ph){
   var w=el("div","photos");
   ph.forEach(function(p){
     var v=el("div","ph");
-    var im=el("img"); im.src=p.data; im.alt=p.et; v.appendChild(im);
+    if(p.data){ var im=el("img"); im.src=p.data; im.alt=p.et; v.appendChild(im); }
+    else v.appendChild(el("span","phvide","📱 sur la tablette"));
     v.appendChild(el("span","lg",p.et));
     var b=el("button",null,"✕"); b.type="button";
     b.onclick=function(){
@@ -3713,7 +3749,8 @@ function viderFile(manuel){
   if(navigator.onLine===false){ if(manuel) toast("Pas de réseau — gardé en attente","att"); return; }
   var f=fileLire();
   if(!f.length){ if(manuel) toast("Rien en attente"); return; }
-  if(!cfg.webhook){ if(manuel) toast("Adresse d'envoi non renseignée","mal"); return; }
+  /* v4.0 : un element de la file peut porter sa propre adresse (reprise au bureau) */
+  if(!cfg.webhook && !f.some(function(it){ return !!it.u; })){ if(manuel) toast("Adresse d'envoi non renseignée","mal"); return; }
   envoiEnCours=true;
   var envoyes=0;
   /* La file est relue a chaque pas : ce qui s'y ajoute pendant l'envoi (les photos
@@ -3726,6 +3763,7 @@ function viderFile(manuel){
       return;
     }
     var it=reste[0];
+    if(!it.u && !cfg.webhook){ envoiEnCours=false; if(manuel) toast("Adresse d'envoi non renseignée","mal"); return; }
     postMake(it.u||cfg.webhook,it.p)
       .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
       .then(function(){ fileRetirer(it); envoyes++; suivant(); })
@@ -3754,6 +3792,10 @@ function envoyer(statut){
   V.envoye = Date.now();
   sauverTout();
   toast(statut==="finale" ? "Fiche envoyée pour chiffrage" : "Brouillon envoyé — tu le retrouveras au bureau");
+  /* v4.0 — un brouillon part aussi dans la memoire Make pour etre repris sur le PC ;
+     une fiche finale n'a plus rien a y faire. */
+  if(statut==="finale") supprimerSauvegardeMake(V.id);
+  else if(cfg.webhookReprise) setTimeout(function(){ sauvegarderPourBureau(true); }, 300);
   viderFile(true);
   if(statut==="finale") setTimeout(function(){ aller("accueil"); }, 900);
 }
@@ -3762,14 +3804,14 @@ function envoyerPhotos(statut){
   if(!url) return;
   var lot=[];
   V.lots.forEach(function(L){
-    (L.photos||[]).forEach(function(p){ lot.push({source:(L.nom||L.cle), et:p.et, q:p.q, data:p.data}); });
+    (L.photos||[]).forEach(function(p){ if(p.data) lot.push({source:(L.nom||L.cle), et:p.et, q:p.q, data:p.data}); });
   });
   V.pieces.forEach(function(P,i){
     (P.photos||[]).forEach(function(p){
-      lot.push({source:"Pièce "+(i+1)+(P.nom?" "+P.nom:""), et:p.et, q:null, data:p.data});
+      if(p.data) lot.push({source:"Pièce "+(i+1)+(P.nom?" "+P.nom:""), et:p.et, q:null, data:p.data});
     });
   });
-  (V.plans||[]).forEach(function(p){ lot.push({source:"Plans et documents", et:p.et, q:null, data:p.data}); });
+  (V.plans||[]).forEach(function(p){ if(p.data) lot.push({source:"Plans et documents", et:p.et, q:null, data:p.data}); });
 
   var pages=[];
   tousCroquis().forEach(function(x){
@@ -3867,6 +3909,74 @@ function importerFiche(texte){
   ecrire(CLE_COUR, V.id);
   return {ok:true, remplace:remplace, nom:propre(f.client.nom)||"sans nom"};
 }
+/* ============================================================
+   REPRISE AU BUREAU PAR MAKE (v4.0)
+   La fiche part telle quelle dans une memoire Make (scenario « reprise au bureau »,
+   webhook dans les Reglages) ; l'autre appareil la rappelle par son numero.
+   Le fichier et le code restent la solution de repli.
+   ============================================================ */
+var REPRISE_MAX=3000000;
+function appareilNom(){ return /Android|Mobile|Tablet|iPad/i.test(navigator.userAgent) ? "tablette" : "ordinateur"; }
+function etatPourMake(F){
+  F=F||V;
+  var o=JSON.parse(exporterFiche(F));      /* copie profonde */
+  var s=JSON.stringify(o), allege=false;
+  if(s.length>REPRISE_MAX){
+    /* Trop lourd : les photos restent sur la tablette, seule leur etiquette voyage. */
+    var alleger=function(cible){ (cible.photos||[]).forEach(function(p){ if(p.data){ p.data=""; p.sansData=true; allege=true; } }); };
+    (o.fiche.lots||[]).forEach(alleger); (o.fiche.pieces||[]).forEach(alleger); alleger({photos:o.fiche.plans||[]});
+    s=JSON.stringify(o);
+  }
+  return {texte:s, allege:allege, trop:s.length>REPRISE_MAX};
+}
+function sauvegarderPourBureau(silencieux){
+  if(!cfg.webhookReprise){ if(!silencieux) toast("Adresse « reprise au bureau » non renseignée — voir Réglages","mal"); return Promise.resolve(false); }
+  sauverTout();
+  var e=etatPourMake();
+  if(e.trop){ toast("Fiche trop lourde pour la mémoire Make — passe par le fichier","mal"); return Promise.resolve(false); }
+  if(!silencieux) toast("Sauvegarde pour le bureau…");
+  return postMake(cfg.webhookReprise,{secret:cfg.secret||"", action:"sauvegarde", fiche_id:V.id,
+      client:nomClient()||"sans nom", date:V.date, maj:V.maj||Date.now(), appareil:appareilNom(),
+      application:"fiche-chantier KA-RÉ v"+VERSION, etat:e.texte})
+    .then(function(r){ if(r.status===403) throw new Error("clé partagée refusée"); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(function(d){
+      if(!d || !d.ok) throw new Error((d&&d.m)||"réponse inattendue");
+      V.sauvegardeMake=Date.now(); sauverTout();
+      if(vue==="envoi") rendre();
+      toast(e.allege ? "Sauvegardée pour le bureau — sans les photos, trop lourdes" : "Sauvegardée pour le bureau — reprends-la sur le PC","ok");
+      return true;
+    })
+    .catch(function(err){
+      noterIncident("sauvegarde Make refusée : "+err.message);
+      toast(navigator.onLine===false ? "Pas de réseau — sauvegarde pour le bureau non faite" : "Make n'a pas pris la sauvegarde ("+err.message+")","mal");
+      return false;
+    });
+}
+function supprimerSauvegardeMake(id){
+  if(!cfg.webhookReprise || !id) return;
+  fileAjouter({secret:cfg.secret||"", action:"supprimer", fiche_id:id}, cfg.webhookReprise);
+}
+function listerReprises(fn){
+  if(!cfg.webhookReprise){ fn({ok:false,m:"adresse « reprise au bureau » non renseignée (Réglages)"}); return; }
+  postMake(cfg.webhookReprise,{secret:cfg.secret||"", action:"reprises"})
+    .then(function(r){ if(r.status===403) throw new Error("clé partagée refusée"); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(function(d){
+      var L=((d && d.reprises)||[]).filter(function(x){ return x && x.fiche_id; });
+      L.sort(function(a,b){ return (b.maj||0)-(a.maj||0); });
+      fn({ok:true, liste:L});
+    })
+    .catch(function(err){ fn({ok:false, m:err.message}); });
+}
+function reprendreDepuisMake(id, fn){
+  if(!cfg.webhookReprise){ fn({ok:false,m:"adresse « reprise au bureau » non renseignée (Réglages)"}); return; }
+  postMake(cfg.webhookReprise,{secret:cfg.secret||"", action:"reprendre", fiche_id:id})
+    .then(function(r){ if(r.status===403) throw new Error("clé partagée refusée"); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(function(d){
+      if(!d || !d.ok || !d.etat) throw new Error((d&&d.m)||"réponse inattendue");
+      fn(importerFiche(JSON.stringify(d.etat)));
+    })
+    .catch(function(err){ fn({ok:false, m:err.message}); });
+}
 /* Le texte a coller dans une conversation Claude au retour au bureau. */
 function briefChiffrage(){
   var L=[];
@@ -3915,6 +4025,7 @@ function ouvrirReglages(){
   champ(c,"Webhook — envoi des fiches", cfg.webhook, function(v){ cfg.webhook=v; sauverCfg(); });
   champ(c,"Webhook — liste des chantiers", cfg.webhookListe, function(v){ cfg.webhookListe=v; sauverCfg(); });
   champ(c,"Webhook — photos (facultatif)", cfg.webhookPhoto, function(v){ cfg.webhookPhoto=v; sauverCfg(); });
+  champ(c,"Webhook — reprise au bureau (facultatif)", cfg.webhookReprise, function(v){ cfg.webhookReprise=(v||"").trim(); sauverCfg(); });
   champ(c,"Clé partagée", cfg.secret, function(v){ cfg.secret=v; sauverCfg(); });
   champ(c,"Code de retour du mode client", cfg.code, function(v){ cfg.code=v; sauverCfg(); });
   champ(c,"Technicien", cfg.technicien, function(v){ cfg.technicien=v; sauverCfg(); });
@@ -6876,7 +6987,9 @@ window.KARE = {
   photosAttendues:photosAttendues, toutAuRdc:toutAuRdc, postesObligatoires:postesObligatoires, pointsOuverts:pointsOuverts,
   gazHesite:gazHesite, versionsGaz:versionsGaz, lotGazHesite:lotGazHesite, aLotPac:aLotPac, champ:champ,
   surfacePieces:surfacePieces, surfaceHabitable:surfaceHabitable, mursIncoherents:mursIncoherents,
-  piecesSansEmetteur:piecesSansEmetteur, anneeTexte:anneeTexte, origineG:origineG
+  piecesSansEmetteur:piecesSansEmetteur, anneeTexte:anneeTexte, origineG:origineG,
+  etatPourMake:etatPourMake, sauvegarderPourBureau:sauvegarderPourBureau,
+  listerReprises:listerReprises, reprendreDepuisMake:reprendreDepuisMake, supprimerSauvegardeMake:supprimerSauvegardeMake
 };
 
 rendre();

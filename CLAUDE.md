@@ -135,3 +135,33 @@ ce que chacune implique concrètement — jamais une question ouverte.
 
 Il préfère une objection franche à un acquiescement : si une demande introduit un risque ou une
 incohérence, il faut le dire avant de coder. Dans ce métier, une erreur coûte cher.
+
+## v4.0 — reprise au bureau par Make (24/09/2026)
+
+- **Scénario Make 9858094 « KA-RE - Fiche chantier : reprise au bureau »**, webhook propre (Réglages →
+  « Webhook — reprise au bureau »), data store 189035 « KA-RE Fiches chantier en cours » (9 Mo, le maximum
+  de l'organisation). Quatre actions sur le même webhook, toujours avec `secret` : `sauvegarde`
+  (clé = `fiche_id`, écrase), `reprises` (liste sans l'état, triée par `maj` décroissant), `reprendre`
+  (renvoie `etat` en JSON brut) et `supprimer`. Une clé fausse répond 403 en JSON — c'est le seul des
+  trois webhooks à le faire, utile pour diagnostiquer un réglage sur le PC.
+- **Ce que l'appli envoie** : `etatPourMake()` = `exporterFiche()` tel quel tant qu'il pèse moins de
+  3 Mo ; au-delà les photos perdent leur `data` (`sansData:true`, l'étiquette reste). Une photo sans
+  `data` s'affiche « 📱 sur la tablette » et n'est jamais renvoyée par `envoyerPhotos()` — ne pas
+  supposer `p.data` rempli ailleurs non plus. Au-delà de 3 Mo même allégé : refus, fichier ou code.
+- **Quand ça part** : bouton « ☁ Sauvegarder pour le bureau » (vue envoi) et automatiquement 300 ms
+  après un brouillon envoyé ; une fiche finale met `action:"supprimer"` dans la file. La sauvegarde
+  n'est pas mise en file (l'état pèse trop pour `localStorage`) : sans réseau, elle échoue avec un
+  message, la fiche reste sur l'appareil.
+- **Reprise** : le dialogue « ⤒ Reprendre » liste d'abord les sauvegardes Make, un appui importe par
+  `importerFiche()` — donc la règle « la plus récente gagne » s'applique, et une copie locale plus
+  récente refuse la reprise (message explicite). Fichier et code restent en dessous.
+- **`viderFile()` accepte des éléments qui portent leur propre URL (`it.u`)** même sans `cfg.webhook` :
+  c'est ce qui permet au PC de vider la file de suppression sans avoir configuré l'envoi des fiches.
+- Pièges Make rencontrés en le montant : « Search records » sort ses champs sous `data.` (`20.data.client`),
+  « Get a record » les sort à plat avec `returnWrapped:false` ; le tri se donne en `sort:[{key, order:-1}]`
+  (nombre, pas chaîne) ; un corps vide ou un JSON invalide plantaient le scénario, d'où le filtre
+  `length(1.payload) > 0` et un gestionnaire « Ignore » sur le parseur ; un `WebhookRespond` qui
+  intercale un texte libre dans du JSON écrit à la main casse au premier guillemet — l'état est inséré
+  brut parce qu'il est déjà du JSON, le nom du client, lui, ne l'est pas.
+- La publication sur GitHub est faite par Claude par `git push` (jeton du scénario Make 9722430),
+  plus de dépôt à la main. `index.html` fait ~352 Ko.
