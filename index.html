@@ -302,7 +302,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "4.2";
+var VERSION = "4.3";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -2035,14 +2035,22 @@ function mursIncoherents(){
   return out;
 }
 /* pieces chauffees sans aucun emetteur releve : soit un oubli, soit une piece froide a signaler */
+/* v4.3 — les emetteurs comptent des qu'un lot chauffe de l'eau, ou qu'une clim remplace le chauffage
+   (les radiateurs a deposer). Plus de condition sur la surface : avec les plans du client il n'y en a pas. */
+function lotEmetteurs(){ return aLotHydraulique() || (aLotClim() && climEstChauffage()); }
 function piecesSansEmetteur(){
   var out=[];
-  if(!aLotHydraulique()) return out;
+  if(!lotEmetteurs()) return out;
   V.pieces.forEach(function(P,i){
-    if(P.annexe || (P.rads||[]).length || surfacePiece(P)===null) return;
+    if(P.annexe || P.sansRad || (P.rads||[]).length) return;
     out.push(txt(P.nom)||"Pièce "+(i+1));
   });
   return out;
+}
+function emetteursIncomplets(P){
+  var k=0;
+  (P.rads||[]).forEach(function(R){ if(sansAccent(R.type||"").indexOf("Plancher")===0) return; if(nb(R.lg)===null || nb(R.h)===null) k++; });
+  return k;
 }
 /* v4.2 — ce qui ne vient jamais des plans : la hauteur et les fenetres. Une hauteur est
    « relevee » si Remi l'a tapee ou confirmee (P.hspOk). Les pieces creees avant la 4.2 n'ont pas
@@ -2063,13 +2071,14 @@ function nbOuvrants(P){
 function lotThermique(){ return aLotPac()||aLotClim()||aLotHydraulique(); }
 /* pieces chauffees dont la hauteur n'est pas relevee, ou sans aucun ouvrant ni « sans ouvrant » */
 function relevesManquants(){
-  var out={hsp:[], ouv:[]};
+  var out={hsp:[], ouv:[], radDim:[]};
   if(!lotThermique()) return out;
   V.pieces.forEach(function(P,i){
     if(P.annexe) return;
     var nomP=txt(P.nom)||"Pièce "+(i+1);
     if(!hspRelevee(P)) out.hsp.push(nomP);
     if(!nbOuvrants(P) && !P.sansOuv) out.ouv.push(nomP);
+    if(lotEmetteurs() && emetteursIncomplets(P)) out.radDim.push(nomP);
   });
   return out;
 }
@@ -2156,6 +2165,18 @@ function cartePiece(a,P,idx){
       var bo=el("button","btn mini", P.sansOuv ? "Finalement il y en a" : "Sans ouvrant"); bo.type="button";
       bo.onclick=function(){ P.sansOuv=!P.sansOuv; sauverTout(); rendre(); };
       spz.appendChild(bo);
+    }
+    /* v4.3 — et les emetteurs : pas d'emetteur releve, ou un emetteur sans ses dimensions */
+    if(lotEmetteurs()){
+      var nR=(P.rads||[]).length, nI=emetteursIncomplets(P);
+      var txtR = nR ? (nI ? "✗ "+nI+" émetteur"+(nI>1?"s":"")+" sans dimensions" : "✓ "+nR+" émetteur"+(nR>1?"s":""))
+                    : (P.sansRad ? "✓ Pas d'émetteur (pièce froide)" : "✗ Émetteur à relever");
+      spz.appendChild(el("span","sp"+((nR && !nI) || (!nR && P.sansRad) ? " ok" : " ko"), txtR));
+      if(!nR){
+        var br=el("button","btn mini", P.sansRad ? "Finalement il y en a un" : "Pas d'émetteur"); br.type="button";
+        br.onclick=function(){ P.sansRad=!P.sansRad; sauverTout(); rendre(); };
+        spz.appendChild(br);
+      }
     }
     w.appendChild(spz);
   }
@@ -2839,8 +2860,9 @@ function vueEnvoi(a){
   var rm=relevesManquants();
   if(rm.hsp.length) pb.push({t:"att", vue:"pieces", m:"Hauteur sous plafond non relevée : "+rm.hsp.join(", ")+" — tape-la, ou confirme la valeur affichée (les plans ne la donnent pas)."});
   if(rm.ouv.length) pb.push({t:"att", vue:"pieces", m:"Ouvrants non relevés : "+rm.ouv.join(", ")+" — largeur × hauteur de chaque fenêtre, ou « Sans ouvrant »."});
+  if(rm.radDim.length) pb.push({t:"att", vue:"pieces", m:"Émetteur sans dimensions : "+rm.radDim.join(", ")+" — longueur × hauteur en cm, Projipack en a besoin."});
   var pse=piecesSansEmetteur();
-  if(pse.length) pb.push({t:"att", vue:"pieces", m:"Sans émetteur relevé : "+pse.join(", ")+" — pièce froide à signaler, ou oubli ?"});
+  if(pse.length) pb.push({t:"att", vue:"pieces", m:"Sans émetteur relevé : "+pse.join(", ")+" — relève-le, ou marque « Pas d'émetteur » (pièce froide)."});
   manquesNdd().forEach(function(m){ pb.push({t:"att", vue:"ndd", m:m}); });
   metreLignes().forEach(function(x){
     if(x.total!==null && x.detail.length && x.detail.join(" ").indexOf("à préciser")>=0)
@@ -3356,7 +3378,7 @@ function payload(statut){
     var c=calcPiece(P);
     return {numero:i+1, nom:propre(P.nom), longueur_m:nb(P.lg), largeur_m:nb(P.la),
       surface_m2:surfacePiece(P), hsp_m:nb(P.hsp), hsp_relevee:hspRelevee(P), niveau:propre(P.niveau), circuit:P.circuit||null,
-      annexe_non_chauffee: !!P.annexe, sans_ouvrant: !!P.sansOuv,
+      annexe_non_chauffee: !!P.annexe, sans_ouvrant: !!P.sansOuv, sans_emetteur: !!P.sansRad,
       dicte_plaud: P.plaud||null,
       volume_m3: c.vol?Math.round(c.vol*10)/10:null,
       murs: P.murs.map(function(M){

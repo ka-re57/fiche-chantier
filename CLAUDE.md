@@ -299,7 +299,7 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
   intercale un texte libre dans du JSON écrit à la main casse au premier guillemet — l'état est inséré
   brut parce qu'il est déjà du JSON, le nom du client, lui, ne l'est pas.
 - La publication sur GitHub est faite par Claude par `git push` (jeton du scénario Make 9722430),
-  plus de dépôt à la main. `index.html` fait ~363 Ko.
+  plus de dépôt à la main. `index.html` fait ~365 Ko.
 
 ## v4.1 — retour de la deuxième fiche réelle (BORDONNE, 24/09/2026)
 
@@ -349,6 +349,16 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
   hauteur différente du 2,5 par défaut est considérée relevée (heuristique assumée).
 - À l'envoi : « Hauteur sous plafond non relevée : … » et « Ouvrants non relevés : … », avec → Corriger.
   Payload par pièce : `hsp_relevee`, `sans_ouvrant`.
+
+## v4.3 — « pareil pour les émetteurs ? » (24/09/2026)
+
+- La ligne « sur place » et les alertes couvrent aussi les émetteurs, dès qu'un lot chauffe de l'eau ou
+  qu'une clim remplace le chauffage (`lotEmetteurs()`) : « ✗ Émetteur à relever » avec le bouton « Pas
+  d'émetteur » (`P.sansRad`, la pièce froide assumée), « ✗ n émetteur(s) sans dimensions »
+  (`emetteursIncomplets`, plancher chauffant exclu).
+- **`piecesSansEmetteur()` ne dépend plus de la surface** : avec les plans du client aucune pièce n'a de
+  surface, et l'alerte de la 3.9 ne sortait jamais. Une pièce non annexe, sans émetteur et sans « Pas
+  d'émetteur » est signalée. Payload : `sans_emetteur` par pièce.
 
 ## Le croquis, ce qui a été appris à l'usage
 
