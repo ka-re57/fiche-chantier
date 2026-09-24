@@ -302,7 +302,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "4.3";
+var VERSION = "4.4";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -2047,9 +2047,14 @@ function piecesSansEmetteur(){
   });
   return out;
 }
+function radAvecEpaisseur(R){ var t=sansAccent(R.type||""); return t==="Alu" || t==="Fonte"; }
 function emetteursIncomplets(P){
   var k=0;
-  (P.rads||[]).forEach(function(R){ if(sansAccent(R.type||"").indexOf("Plancher")===0) return; if(nb(R.lg)===null || nb(R.h)===null) k++; });
+  (P.rads||[]).forEach(function(R){
+    var t=sansAccent(R.type||"");
+    if(t.indexOf("Plancher")===0 || t.indexOf("Ventilo")===0) return;
+    if(nb(R.lg)===null || nb(R.h)===null || (radAvecEpaisseur(R) && nb(R.ep)===null)) k++;
+  });
   return k;
 }
 /* v4.2 — ce qui ne vient jamais des plans : la hauteur et les fenetres. Une hauteur est
@@ -2169,7 +2174,7 @@ function cartePiece(a,P,idx){
     /* v4.3 — et les emetteurs : pas d'emetteur releve, ou un emetteur sans ses dimensions */
     if(lotEmetteurs()){
       var nR=(P.rads||[]).length, nI=emetteursIncomplets(P);
-      var txtR = nR ? (nI ? "✗ "+nI+" émetteur"+(nI>1?"s":"")+" sans dimensions" : "✓ "+nR+" émetteur"+(nR>1?"s":""))
+      var txtR = nR ? (nI ? "✗ "+nI+" émetteur"+(nI>1?"s":"")+" sans dimensions"+((P.rads||[]).some(function(R){ return radAvecEpaisseur(R) && nb(R.ep)===null; })?" (épaisseur ?)":"") : "✓ "+nR+" émetteur"+(nR>1?"s":""))
                     : (P.sansRad ? "✓ Pas d'émetteur (pièce froide)" : "✗ Émetteur à relever");
       spz.appendChild(el("span","sp"+((nR && !nI) || (!nR && P.sansRad) ? " ok" : " ko"), txtR));
       if(!nR){
@@ -2325,6 +2330,18 @@ function cartePiece(a,P,idx){
     var iRl=champ(rr,"Longueur (cm)", R.lg, function(v){ R.lg=v; majCalculs(); }, "number", "80 ou 80 x 60", true);
     var iRh=champ(rr,"Hauteur (cm)", R.h, function(v){ R.h=v; majCalculs(); }, "number");
     var iRn=champ(rr,"Nombre", R.nb, function(v){ R.nb=v; majCalculs(); }, "number");
+    /* v4.4 — Projipack demande l'epaisseur des alu (et la profondeur des fontes) : sans elle,
+       pas de temperature de depart calculee. Champ en cm, compte comme dimension manquante. */
+    var iRe=null;
+    if(radAvecEpaisseur(R)){
+      iRe=champ(rr,"Épaisseur (cm)", R.ep, function(v){ R.ep=v; majCalculs(); }, "number", R.type==="Fonte"?"profondeur, 14 ou 22":"8 ou 10");
+      iRe.addEventListener("change", function(){
+        if(RENDU_EN_COURS || !document.body.contains(this)) return;
+        var v=nb(R.ep);   /* « 0,08 » = des metres ; « 80 » = des mm : dans les deux cas c'est 8 cm */
+        if(v!==null && v>0 && v<1){ R.ep=virgule(Math.round(v*100)); sauverTout(); rendre(); toast(virgule(v)+" m → "+R.ep+" cm","ok"); }
+        else if(v!==null && v>=40){ R.ep=virgule(Math.round(v/10)); sauverTout(); rendre(); toast(virgule(v)+" mm → "+R.ep+" cm","ok"); }
+      });
+    }
     iRl.addEventListener("change", function(){
       if(RENDU_EN_COURS || !document.body.contains(this)) return;
       var c=eclaterCotes(this.value);
@@ -2332,7 +2349,7 @@ function cartePiece(a,P,idx){
       radEnCm(R,"lg");
     });
     iRh.addEventListener("change", function(){ if(RENDU_EN_COURS || !document.body.contains(this)) return; radEnCm(R,"h"); });
-    chainer([iRl,iRh,iRn]);
+    chainer(iRe ? [iRl,iRh,iRe,iRn] : [iRl,iRh,iRn]);
     puces(rw,"Raccordement",["Bitube","Monotube","Pieuvre","Inconnu"],R.racc,
           function(v){ R.racc=v; sauver(); rendre(); });
     puces(rw,"Sort de la pièce",["Conservé","Déposé","Remplacé","À trancher"],R.sort,
@@ -2345,7 +2362,7 @@ function cartePiece(a,P,idx){
   var ar=el("button","btn mini","＋ Ajouter un émetteur"); ar.type="button";
   ar.onclick=function(){
     var mod = P.rads.length ? P.rads[P.rads.length-1] : modeleRad();
-    P.rads.push({type:mod.type||"", lg:"", h:mod.h||"", nb:"1", racc:mod.racc||"", sort:mod.sort||""});
+    P.rads.push({type:mod.type||"", lg:"", h:mod.h||"", ep:mod.ep||"", nb:"1", racc:mod.racc||"", sort:mod.sort||""});
     sauverTout(); rendre();
   };
   zr.appendChild(ar);
@@ -2357,7 +2374,7 @@ function cartePiece(a,P,idx){
       V.pieces.forEach(function(Q){
         if(Q.pid===P.pid) return;
         Q.rads = P.rads.map(function(R){
-          return {type:R.type, lg:R.lg, h:R.h, nb:R.nb, racc:R.racc, sort:R.sort};
+          return {type:R.type, lg:R.lg, h:R.h, ep:R.ep, nb:R.nb, racc:R.racc, sort:R.sort};
         });
         n++;
       });
@@ -2860,7 +2877,7 @@ function vueEnvoi(a){
   var rm=relevesManquants();
   if(rm.hsp.length) pb.push({t:"att", vue:"pieces", m:"Hauteur sous plafond non relevée : "+rm.hsp.join(", ")+" — tape-la, ou confirme la valeur affichée (les plans ne la donnent pas)."});
   if(rm.ouv.length) pb.push({t:"att", vue:"pieces", m:"Ouvrants non relevés : "+rm.ouv.join(", ")+" — largeur × hauteur de chaque fenêtre, ou « Sans ouvrant »."});
-  if(rm.radDim.length) pb.push({t:"att", vue:"pieces", m:"Émetteur sans dimensions : "+rm.radDim.join(", ")+" — longueur × hauteur en cm, Projipack en a besoin."});
+  if(rm.radDim.length) pb.push({t:"att", vue:"pieces", m:"Émetteur sans dimensions : "+rm.radDim.join(", ")+" — longueur × hauteur en cm, et l'épaisseur pour l'alu et la fonte : Projipack les demande."});
   var pse=piecesSansEmetteur();
   if(pse.length) pb.push({t:"att", vue:"pieces", m:"Sans émetteur relevé : "+pse.join(", ")+" — relève-le, ou marque « Pas d'émetteur » (pièce froide)."});
   manquesNdd().forEach(function(m){ pb.push({t:"att", vue:"ndd", m:m}); });
@@ -3392,7 +3409,7 @@ function payload(statut){
           surface_pleine_m2: brut!==null?Math.round(Math.max(0,brut-vit)*100)/100:null};
       }),
       emetteurs: P.rads.map(function(R){
-        return {type:R.type, longueur_cm:nb(R.lg), hauteur_cm:nb(R.h), nombre:nb(R.nb)||1,
+        return {type:R.type, longueur_cm:nb(R.lg), hauteur_cm:nb(R.h), epaisseur_cm:radAvecEpaisseur(R)?nb(R.ep):null, nombre:nb(R.nb)||1,
           type_panneau:R.modele||null, raccordement:R.racc, sort:R.sort,
           contenance_L:Math.round(contenanceRad(R,P)*10)/10};
       }),
@@ -3716,7 +3733,7 @@ function promptProjipack(){
     if(!parc[k]) parc[k]={n:0,s:0,em:{}};
     parc[k].n++; if(sp!==null) parc[k].s+=sp;
     P.rads.forEach(function(R){ if(!R.type) return;
-      var lib=R.type+(R.modele?" type "+R.modele:"")+(txt(R.lg)?" "+R.lg+"\u00d7"+(txt(R.h)||"?")+" cm":"");
+      var lib=R.type+(R.modele?" type "+R.modele:"")+(txt(R.lg)?" "+R.lg+"\u00d7"+(txt(R.h)||"?")+" cm":"")+(radAvecEpaisseur(R)?" \u00e9p. "+(txt(R.ep)||"?")+" cm":"");
       parc[k].em[lib]=(parc[k].em[lib]||0)+(nb(R.nb)||1); });
   });
   for(var k in parc){ if(!parc.hasOwnProperty(k)) continue;
@@ -3861,7 +3878,7 @@ function resumeTexte(){
           (brut!==null?fmt(Math.max(0,brut-vit),2):"?")+" m²"+(vit?", vitrée "+fmt(vit,2)+" m²"+(ouvr.length?" ("+ouvr.join(", ")+")":""):""));
       });
       P.rads.forEach(function(R){
-        L.push("   émetteur : "+(R.type||"?")+(txt(R.lg)?" "+R.lg+"×"+(txt(R.h)||"?")+" cm":"")+
+        L.push("   émetteur : "+(R.type||"?")+(txt(R.lg)?" "+R.lg+"×"+(txt(R.h)||"?")+" cm":"")+(radAvecEpaisseur(R)?" ép. "+(txt(R.ep)||"?")+" cm":"")+
           " ×"+(nb(R.nb)||1)+(R.racc?" — "+R.racc:"")+(R.sort?" — "+R.sort:"")+
           " — ~"+fmt(contenanceRad(R),1)+" L");
       });

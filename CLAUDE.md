@@ -299,7 +299,7 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
   intercale un texte libre dans du JSON écrit à la main casse au premier guillemet — l'état est inséré
   brut parce qu'il est déjà du JSON, le nom du client, lui, ne l'est pas.
 - La publication sur GitHub est faite par Claude par `git push` (jeton du scénario Make 9722430),
-  plus de dépôt à la main. `index.html` fait ~365 Ko.
+  plus de dépôt à la main. `index.html` fait ~366 Ko.
 
 ## v4.1 — retour de la deuxième fiche réelle (BORDONNE, 24/09/2026)
 
@@ -359,6 +359,18 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
 - **`piecesSansEmetteur()` ne dépend plus de la surface** : avec les plans du client aucune pièce n'a de
   surface, et l'alerte de la 3.9 ne sortait jamais. Une pièce non annexe, sans émetteur et sans « Pas
   d'émetteur » est signalée. Payload : `sans_emetteur` par pièce.
+
+## v4.4 — l'épaisseur des radiateurs alu et fonte (24/09/2026)
+
+- Projipack demande l'épaisseur d'un radiateur alu (et la profondeur d'une fonte) pour calculer la
+  température de départ acceptée ; Rémi n'avait pas pensé à la regarder chez BORDONNE. Champ
+  « Épaisseur (cm) » (`R.ep`) sur ces deux types seulement (`radAvecEpaisseur`), repris à l'ajout d'un
+  émetteur et par « Appliquer à toutes les pièces », compté comme dimension manquante par
+  `emetteursIncomplets` (« (épaisseur ?) » sur la ligne sur place), dans le payload (`epaisseur_cm`),
+  le résumé et le prompt Projipack (« Alu 80×60 cm ép. 8 cm »).
+- Unités : « 0,08 » (m) et « 80 » (mm) deviennent 8 cm à la sortie du champ — un radiateur de 40 cm
+  d'épaisseur n'existe pas, au-dessus c'est des millimètres. `radEnCm` n'est pas utilisé ici : sa
+  règle « < 10 = des mètres » aurait transformé 8 cm en 800.
 
 ## Le croquis, ce qui a été appris à l'usage
 
