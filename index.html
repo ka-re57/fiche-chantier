@@ -104,6 +104,9 @@ textarea{min-height:90px;resize:vertical;line-height:1.4}
   background:var(--marque);color:var(--surmarque);font-family:var(--ui);font-size:22px;font-weight:700;line-height:1;
   cursor:pointer;padding:0;touch-action:manipulation}
 .kx:active{filter:brightness(.85)}
+.reprise{display:flex;gap:6px;align-items:stretch;margin-bottom:6px}
+.reprise .btn.large{flex:1;margin:0}
+.reprise .btn.mini{min-width:44px}
 .champ label.ch{margin-top:8px}
 .rang{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
 .rang>*{flex:1 1 140px;min-width:0}
@@ -295,7 +298,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "4.0";
+var VERSION = "4.1";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -401,7 +404,7 @@ var LOTS = [
     opts:["Plots au sol","Dalle béton à prévoir","Dalle fournie par le client","Console murale","À voir"]},
    {k:"emplui", l:"Emplacement du module intérieur", i:"Garage, local technique, cellier"},
    {k:"liaison", l:"Longueur de liaison frigorifique", t:"num", u:"ml"},
-   {k:"carot", l:"Carottages — nombre de trous", t:"num", u:"trous"},
+   {k:"carot", l:"Carottages — nombre de trous", t:"chx", opts:["Aucun","1 trou","2 trous","3 trous","4 et plus","À voir"]},
    {k:"carotmur", l:"Diamètre des carottages et nature des murs", i:"Ø · parpaing, béton, pierre · épaisseur"},
    {k:"elec", l:"Alimentation électrique", t:"chx", opts:["Monophasé","Triphasé","À vérifier"]},
    {k:"tableau", l:"Tableau électrique — place, calibre, ligne dédiée possible ?"},
@@ -481,7 +484,7 @@ var LOTS = [
    {k:"emplue", l:"Emplacement du groupe extérieur — distance, dénivelé, dégagement, vis-à-vis"},
    {k:"supportue", l:"Support du groupe extérieur", t:"chx",
     opts:["Mural","Sol","Dalle béton à prévoir","Dalle fournie par le client","À voir"]},
-   {k:"carot", l:"Carottages — nombre de trous", t:"num", u:"trous"},
+   {k:"carot", l:"Carottages — nombre de trous", t:"chx", opts:["Aucun","1 trou","2 trous","3 trous","4 et plus","À voir"]},
    {k:"carotmur", l:"Diamètre des carottages et nature des murs", i:"Ø · parpaing, béton, pierre · épaisseur"},
    {k:"condensats", l:"Évacuation des condensats", t:"chx", opts:["Gravité","Pompe de relevage","À voir"]},
    {k:"tableau", l:"Tableau électrique — place et puissance disponibles", t:"chx",
@@ -878,6 +881,18 @@ function nomDuTitre(t){
 function nomClient(F){
   F=F||V;
   return propre(F.client && F.client.nom) || propre(F.societe) || nomDuTitre(F.opp_titre) || "";
+}
+/* v4.1 — la ville aussi : BORDONNE est partie sans commune alors que le titre disait « …, Marly »,
+   d'ou un dossier Drive a double espace et un sujet de mail qui finit par « - ». */
+function villeDuTitre(t){
+  var s=String(t||""), j=s.lastIndexOf(",");
+  if(j<0) return "";
+  var v=propre(s.slice(j+1));
+  return (v && v.length<=40 && !/\d/.test(v)) ? v : "";
+}
+function villeClient(F){
+  F=F||V;
+  return propre(F.client && F.client.ville) || villeDuTitre(F.opp_titre) || "";
 }
 function parseCommentaire(c){
   var o = {nom:"",tel:"",email:"",adresse:"",ville:"",logement:"",statut:"",objet:"",drive:"",notes:txt(c)};
@@ -1537,7 +1552,11 @@ function vueMaison(a){
   var rt=el("div","rang"); b2c.appendChild(rt);
   champ(rt,"Temp\u00e9rature de base (\u00b0C)", M.tbase, function(v){ M.tbase=v; majCalculs(); }, "number");
   champ(rt,"Altitude (m)", M.alt, function(v){ M.alt=v; }, "number");
-  champ(rt,"Temp\u00e9rature de confort (\u00b0C)", M.tconfort, function(v){ M.tconfort=v; majCalculs(); }, "number");
+  var iTc=champ(rt,"Temp\u00e9rature de confort (\u00b0C)", M.tconfort, function(v){ M.tconfort=v; majCalculs(); }, "number");
+  iTc.addEventListener("change", function(){
+    var v=nb(M.tconfort);
+    if(v!==null && (v<12 || v>26)) toast("Température de confort "+M.tconfort+" °C ? Les calculs prennent 20 °C tant que ce n'est pas corrigé","att");
+  });
   b2c.appendChild(el("p","mini",aLotPac()
     ? "Moselle : \u201315 \u00b0C en zone H1b. Projipack repasse la temp\u00e9rature de confort \u00e0 19 \u00b0C d\u00e8s qu'on change de tuile \u2014 \u00e0 reforcer \u00e0 chaque fois. La note de dimensionnement, elle, impose 19 \u00b0C sans discussion."
     : "Moselle : \u201315 \u00b0C en zone H1b. La temp\u00e9rature de base commande la puissance chaud de chaque pi\u00e8ce."));
@@ -1713,7 +1732,9 @@ function rendreQuestion(parent,L,q){
   w.appendChild(es);
 
   if(q.t==="chx"){
-    puces(w,null,q.opts,r.v,function(v){ r.v=v; if(v&&!r.e) r.e="dit"; if(q.apres) q.apres(L,v); sauver(); rendre(); });
+    var optsQ=q.opts;
+    if(txt(r.v) && q.opts.indexOf(r.v)<0) optsQ=q.opts.concat([r.v]);
+    puces(w,null,optsQ,r.v,function(v){ r.v=v; if(v&&!r.e) r.e="dit"; if(q.apres) q.apres(L,v); sauver(); rendre(); });
   } else if(q.t==="multi"){
     var vals = r.v ? String(r.v).split(" + ") : [];
     pucesMulti(w,null,q.opts,vals,function(out){
@@ -2007,6 +2028,13 @@ function piecesSansEmetteur(){
   });
   return out;
 }
+/* v4.1 — un radiateur de « 0,6 » est en metres : 60 cm. Sous 10, ce n'est jamais des cm. */
+function radEnCm(R,k){
+  var v=nb(R[k]);
+  if(v===null || v<=0 || v>=10) return;
+  R[k]=virgule(Math.round(v*100)); sauverTout(); rendre(); toast(virgule(v)+" m → "+R[k]+" cm","ok");
+}
+function virgule(x){ return String(x).replace(".",","); }
 function surfacePiece(P){
   var s=nb(P.surf);
   if(s!==null) return s;
@@ -2043,6 +2071,14 @@ function cartePiece(a,P,idx){
     });
   }
   eclaterVers(iL,["lg","la","hsp"]); eclaterVers(il,["la","hsp"]); eclaterVers(iH,["hsp"]);
+  /* v4.1 — « 180 » sous plafond (BORDONNE) : c'est des centimetres. On convertit a la sortie
+     du champ, jamais pendant la frappe (« 268 » en cours de saisie ne doit pas devenir 0,26). */
+  iH.addEventListener("change", function(){
+    if(RENDU_EN_COURS || !document.body.contains(this)) return;
+    var h=nb(P.hsp);
+    if(h!==null && h>=100){ P.hsp=virgule(h/100); sauverTout(); rendre(); toast(fmt(h,0)+" cm → "+P.hsp+" m","ok"); }
+    else if(h!==null && h>10) toast("Hauteur sous plafond "+P.hsp+" m ? Vérifie l'unité","att");
+  });
   chainer([iL,il,iH]);
   /* F — les cotes dictees au Plaud : on note l'heure, le chiffrage sait ou chercher */
   var bpl=el("button","et"+(P.plaud?" on-ok":""), P.plaud ? "✓ Cotes dictées au Plaud vers "+heureCourte(P.plaud) : "🎙 Cotes dictées au Plaud");
@@ -2189,9 +2225,19 @@ function cartePiece(a,P,idx){
       rw.appendChild(el("p","mini","Le type se lit sur l'étiquette au dos ou se compte : nombre de panneaux, nombre de rangées d'ailettes. Projipack en a besoin pour dire quelle température de départ le circuit accepte."));
     }
     var rr=el("div","rang"); rw.appendChild(rr);
-    champ(rr,"Longueur (cm)", R.lg, function(v){ R.lg=v; majCalculs(); }, "number");
-    champ(rr,"Hauteur (cm)", R.h, function(v){ R.h=v; majCalculs(); }, "number");
-    champ(rr,"Nombre", R.nb, function(v){ R.nb=v; majCalculs(); }, "number");
+    /* v4.1 — la touche × aussi sur les radiateurs : « 80 x 60 » remplit longueur et hauteur,
+       « 80 x 60 x 2 » le nombre en plus. Une cote sous 10 est en metres : on la passe en cm. */
+    var iRl=champ(rr,"Longueur (cm)", R.lg, function(v){ R.lg=v; majCalculs(); }, "number", "80 ou 80 x 60", true);
+    var iRh=champ(rr,"Hauteur (cm)", R.h, function(v){ R.h=v; majCalculs(); }, "number");
+    var iRn=champ(rr,"Nombre", R.nb, function(v){ R.nb=v; majCalculs(); }, "number");
+    iRl.addEventListener("change", function(){
+      if(RENDU_EN_COURS || !document.body.contains(this)) return;
+      var c=eclaterCotes(this.value);
+      if(c){ R.lg=c[0]; R.h=c[1]; if(c.length>2) R.nb=c[2]; sauverTout(); rendre(); toast("Radiateur "+c[0]+" × "+c[1]+" cm"+(c.length>2?" × "+c[2]:""),"ok"); return; }
+      radEnCm(R,"lg");
+    });
+    iRh.addEventListener("change", function(){ if(RENDU_EN_COURS || !document.body.contains(this)) return; radEnCm(R,"h"); });
+    chainer([iRl,iRh,iRn]);
     puces(rw,"Raccordement",["Bitube","Monotube","Pieuvre","Inconnu"],R.racc,
           function(v){ R.racc=v; sauver(); rendre(); });
     puces(rw,"Sort de la pièce",["Conservé","Déposé","Remplacé","À trancher"],R.sort,
@@ -2364,7 +2410,38 @@ function coefG(){
   return Math.round(g*100)/100;
 }
 function tBase(){ var v=nb(V.maison.tbase); return v===null ? -15 : v; }
-function tConfort(){ var v=nb(V.maison.tconfort); return v===null ? 20 : v; }
+function tConfort(){ var v=nb(V.maison.tconfort); return (v===null || v<12 || v>26) ? 20 : v; }
+/* v4.1 — ce que la fiche BORDONNE a laisse passer : 1934 °C de confort, 180 m sous plafond,
+   20 m² habitables pour onze pieces. Chaque cas a un message et une vue ou se corriger. */
+function maisonIncoherences(){
+  var out=[], M=V.maison;
+  var tc=nb(M.tconfort);
+  if(tc!==null && (tc<12 || tc>26)) out.push({t:"mal", vue:"maison", m:"Température de confort « "+M.tconfort+" °C » : impossible, les calculs prennent 20 °C. Corrige-la."});
+  var tb=nb(M.tbase);
+  if(tb!==null && (tb<-30 || tb>5)) out.push({t:"mal", vue:"maison", m:"Température de base « "+M.tbase+" °C » : vérifie (Moselle : −15 °C)."});
+  var sh=nb(M.surface), npc=0, nsc=0;
+  V.pieces.forEach(function(P){ if(P.annexe) return; npc++; if(surfacePiece(P)===null) nsc++; });
+  var sp=surfacePieces();
+  if(sh!==null && sp.n && sh<sp.s*0.8) out.push({t:"att", vue:"maison", m:"Surface habitable saisie "+fmt(sh,0)+" m² alors que les pièces relevées font déjà "+fmt(sp.s,0)+" m²."});
+  else if(sh!==null && npc>=3 && sh<9*npc) out.push({t:"att", vue:"maison", m:"Surface habitable saisie "+fmt(sh,0)+" m² pour "+npc+" pièces chauffées : improbable, vérifie le chiffre."});
+  V.pieces.forEach(function(P,i){
+    var nomP=txt(P.nom)||"Pièce "+(i+1), h=nb(P.hsp);
+    if(h!==null && h>10) out.push({t:"mal", vue:"pieces", m:nomP+" : hauteur sous plafond « "+P.hsp+" » — en mètres ? (1,80 et non 180)"});
+    if(nb(P.lg)>40 || nb(P.la)>40) out.push({t:"att", vue:"pieces", m:nomP+" : "+(nb(P.lg)>40?P.lg:P.la)+" m de côté — en mètres ?"});
+    (P.rads||[]).forEach(function(R,k){
+      var l=nb(R.lg), hh=nb(R.h);
+      if((l!==null && l>0 && l<10) || (hh!==null && hh>0 && hh<10))
+        out.push({t:"att", vue:"pieces", m:nomP+", émetteur "+(k+1)+" : "+(l!==null&&l<10?R.lg:R.h)+" cm — les radiateurs se notent en centimètres (60, pas 0,6)."});
+    });
+  });
+  if(nsc && npc>=2 && (V.docs||[]).indexOf("Plans / cadastre")<0)
+    out.push({t:"att", vue:"notes", m:nsc+" pièce"+(nsc>1?"s":"")+" sans cotes ni surface : aucune puissance ne sortira. Si les surfaces viennent des plans du client, coche « Plans / cadastre » dans Notes."});
+  if(!V.aides.souhaite && (V.docs||[]).indexOf("Avis d'imposition du foyer")>=0)
+    out.push({t:"att", vue:"client", m:"Avis d'imposition demandé mais « Aides de l'État » non cochées : sans ça, ni note de dimensionnement pré-remplie, ni liste des pièces au client."});
+  else if(!V.aides.souhaite && aLotPac())
+    out.push({t:"att", vue:"client", m:"Lot PAC sans aides cochées — c'est voulu ? Les aides déclenchent la note de dimensionnement et la liste des pièces."});
+  return out;
+}
 
 /* --- note de dimensionnement : grille a 7 crans du gabarit MaPrime Facile --- */
 var CRANS_NDD = [[0.4,"RE 2020"],[0.6,"RT 2012"],[0.65,"Bien isol\u00e9 \u2014 RT 2005"],
@@ -2684,6 +2761,7 @@ function vueEnvoi(a){
   mursIncoherents().forEach(function(x){
     pb.push({t:"mal", vue:"pieces", m:x.piece+", "+x.mur+" : surface vitrée "+fmt(x.vit,2)+" m² pour un mur de "+fmt(x.brut,2)+" m² — unité fausse ?"});
   });
+  maisonIncoherences().forEach(function(x){ pb.push(x); });
   var pse=piecesSansEmetteur();
   if(pse.length) pb.push({t:"att", vue:"pieces", m:"Sans émetteur relevé : "+pse.join(", ")+" — pièce froide à signaler, ou oubli ?"});
   manquesNdd().forEach(function(m){ pb.push({t:"att", vue:"ndd", m:m}); });
@@ -2844,7 +2922,12 @@ function ouvrirReprise(){
             toast((res.remplace?"Fiche mise à jour : ":"Fiche reprise : ")+res.nom,"ok");
           });
         };
-        zone.appendChild(b);
+        var lr=el("div","reprise"); lr.appendChild(b);
+        /* v4.1 — les fiches envoyees restent dans la memoire Make : on fait le menage d'ici */
+        var sx=el("button","btn mini d","✕"); sx.type="button"; sx.title="Retirer de la mémoire Make";
+        arme(sx,"Retirer ?",function(){ supprimerSauvegardeMake(x.fiche_id); viderFile(false); if(lr.parentNode) lr.parentNode.removeChild(lr); toast("Retirée de la mémoire Make","ok"); });
+        lr.appendChild(sx);
+        zone.appendChild(lr);
       });
     });
     ct.appendChild(el("h3",null,"Par fichier ou par code"));
@@ -3233,7 +3316,7 @@ function payload(statut){
     opportunite:{id:V.opp_id, titre:propre(V.opp_titre), etape:V.opp_etape},
     societe:{id:V.societe_id, nom:propre(V.societe)},
     client:{nom:nomClient()||"sans nom", telephone:propre(V.client.tel), email:propre(V.client.email),
-      adresse:propre(V.client.adresse), commune:propre(V.client.ville),
+      adresse:propre(V.client.adresse), commune:villeClient()||null,
       type_logement:propre(V.client.logement), statut:propre(V.client.statut),
       annee_construction:nb(V.client.annee), annee_periode:V.client.annee_periode||null, objet:propre(V.client.objet),
       dossier_drive:propre(V.client.drive)},
@@ -3261,7 +3344,7 @@ function payload(statut){
       var N=ndd();
       return {gabarit:"NDD MPF — MaPrime Facile", a_remplir:true,
         beneficiaire:{civilite:V.aides.civilite, nom:propre(V.aides.beneficiaire||V.client.nom),
-          adresse:propre(V.client.adresse), commune:propre(V.client.ville),
+          adresse:propre(V.client.adresse), commune:villeClient()||null,
           parcelle:propre(V.aides.parcelle)},
         etat_logement:N.cran.libelle||null, coefficient_G:N.cran.g,
         cran_force:N.cran.force, criteres_retenus:N.cran.detail,
@@ -3792,10 +3875,10 @@ function envoyer(statut){
   V.envoye = Date.now();
   sauverTout();
   toast(statut==="finale" ? "Fiche envoyée pour chiffrage" : "Brouillon envoyé — tu le retrouveras au bureau");
-  /* v4.0 — un brouillon part aussi dans la memoire Make pour etre repris sur le PC ;
-     une fiche finale n'a plus rien a y faire. */
-  if(statut==="finale") supprimerSauvegardeMake(V.id);
-  else if(cfg.webhookReprise) setTimeout(function(){ sauvegarderPourBureau(true); }, 300);
+  /* v4.0 — un brouillon part aussi dans la memoire Make pour etre repris sur le PC.
+     v4.1 — la fiche finale aussi, sans ses photos (elles sont dans Drive) : BORDONNE est partie
+     avec 180 m sous plafond et 1934 °C, et le PC n'avait plus rien a reprendre pour corriger. */
+  if(cfg.webhookReprise) setTimeout(function(){ sauvegarderPourBureau(true, statut==="finale"); }, 300);
   viderFile(true);
   if(statut==="finale") setTimeout(function(){ aller("accueil"); }, 900);
 }
@@ -3837,7 +3920,7 @@ function envoyerPhotos(statut){
     var directs=[];
     lot.forEach(function(p,n){
       var ph={secret:cfg.secret||"", type:"photo", statut:statut||"finale", fiche_id:V.id,
-        client:nomClient(), commune:propre(V.client.ville),
+        client:nomClient(), commune:villeClient()||null,
         opportunite_id:V.opp_id, date:V.date, source:propre(p.source), etiquette:p.et, question:p.q,
         nom_fichier: slug(V.date)+"_"+slug(nomClient()||"chantier")+"_"+slug(p.source)+"_"+slug(p.et)+"_"+(n+1)+".jpg",
         image_base64: p.data.split(",")[1]};
@@ -3917,11 +4000,11 @@ function importerFiche(texte){
    ============================================================ */
 var REPRISE_MAX=3000000;
 function appareilNom(){ return /Android|Mobile|Tablet|iPad/i.test(navigator.userAgent) ? "tablette" : "ordinateur"; }
-function etatPourMake(F){
+function etatPourMake(F, sansPhotos){
   F=F||V;
   var o=JSON.parse(exporterFiche(F));      /* copie profonde */
   var s=JSON.stringify(o), allege=false;
-  if(s.length>REPRISE_MAX){
+  if(sansPhotos || s.length>REPRISE_MAX){
     /* Trop lourd : les photos restent sur la tablette, seule leur etiquette voyage. */
     var alleger=function(cible){ (cible.photos||[]).forEach(function(p){ if(p.data){ p.data=""; p.sansData=true; allege=true; } }); };
     (o.fiche.lots||[]).forEach(alleger); (o.fiche.pieces||[]).forEach(alleger); alleger({photos:o.fiche.plans||[]});
@@ -3929,21 +4012,22 @@ function etatPourMake(F){
   }
   return {texte:s, allege:allege, trop:s.length>REPRISE_MAX};
 }
-function sauvegarderPourBureau(silencieux){
+function sauvegarderPourBureau(silencieux, sansPhotos){
   if(!cfg.webhookReprise){ if(!silencieux) toast("Adresse « reprise au bureau » non renseignée — voir Réglages","mal"); return Promise.resolve(false); }
   sauverTout();
-  var e=etatPourMake();
+  var e=etatPourMake(null, !!sansPhotos);
   if(e.trop){ toast("Fiche trop lourde pour la mémoire Make — passe par le fichier","mal"); return Promise.resolve(false); }
   if(!silencieux) toast("Sauvegarde pour le bureau…");
   return postMake(cfg.webhookReprise,{secret:cfg.secret||"", action:"sauvegarde", fiche_id:V.id,
-      client:nomClient()||"sans nom", date:V.date, maj:V.maj||Date.now(), appareil:appareilNom(),
+      client:nomClient()||"sans nom", date:V.date, maj:V.maj||Date.now(),
+      appareil:appareilNom()+(V.statut==="envoyee"?" · fiche envoyée":""),
       application:"fiche-chantier KA-RÉ v"+VERSION, etat:e.texte})
     .then(function(r){ if(r.status===403) throw new Error("clé partagée refusée"); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
     .then(function(d){
       if(!d || !d.ok) throw new Error((d&&d.m)||"réponse inattendue");
       V.sauvegardeMake=Date.now(); sauverTout();
       if(vue==="envoi") rendre();
-      toast(e.allege ? "Sauvegardée pour le bureau — sans les photos, trop lourdes" : "Sauvegardée pour le bureau — reprends-la sur le PC","ok");
+      if(!silencieux || !sansPhotos) toast(e.allege ? (sansPhotos ? "Sauvegardée pour le bureau — les photos sont dans Drive" : "Sauvegardée pour le bureau — sans les photos, trop lourdes") : "Sauvegardée pour le bureau — reprends-la sur le PC","ok");
       return true;
     })
     .catch(function(err){
