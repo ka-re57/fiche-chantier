@@ -299,7 +299,7 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
   intercale un texte libre dans du JSON écrit à la main casse au premier guillemet — l'état est inséré
   brut parce qu'il est déjà du JSON, le nom du client, lui, ne l'est pas.
 - La publication sur GitHub est faite par Claude par `git push` (jeton du scénario Make 9722430),
-  plus de dépôt à la main. `index.html` fait ~358 Ko.
+  plus de dépôt à la main. `index.html` fait ~363 Ko.
 
 ## v4.1 — retour de la deuxième fiche réelle (BORDONNE, 24/09/2026)
 
@@ -330,6 +330,25 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
   d'écraser ou de suffixer, pas à l'appli.
 - Constaté, pas corrigé : la hauteur sous plafond par défaut est 2,5 (ou celle de la pièce précédente), et
   le payload ne distingue pas « 2,5 mesuré » de « 2,5 laissé ». Le Plaud disait 2,68 partout.
+
+## v4.2 — « les plans donnent les surfaces, pas les hauteurs ni les fenêtres » (24/09/2026)
+
+- Rémi ne retape pas les cotes quand le client fournit les plans, mais il veut être forcé — ou au moins
+  averti — de relever sur place ce que les plans ne donnent pas : la hauteur sous plafond et les
+  ouvrants (oubliés chez BORDONNE). Rien n'est bloquant, fidèle à la règle « aucun champ obligatoire ».
+- **Bascule « 📐 Les surfaces viendront des plans du client »** en tête de la vue Pièces (`V.plansClient`) :
+  coche « Plans / cadastre » dans « À récupérer », met « sur les plans » en placeholder des cotes, et
+  fait taire l'alerte « pièces sans cotes ». Le payload porte `surfaces_sur_plans_client`.
+- **Ligne « sur place » sur chaque pièce chauffée** dès qu'il y a un lot thermique (`lotThermique()` =
+  PAC, clim ou hydraulique) : hauteur relevée ou « ✗ à relever » avec « ✓ 2,5 m, c'est bon » et
+  « ⇊ Même hauteur : <niveau> » (applique aux pièces du même niveau, ou à toutes sans niveau) ; ouvrants
+  comptés (`nbOuvrants`, un mur avec m² saisis compte 1) ou « ✗ à relever » avec « Sans ouvrant » (`P.sansOuv`).
+- **`hspRelevee(P)`** : `P.hspOk` vrai quand la hauteur est tapée (oninput du champ, ou 3e nombre de
+  « 4,9 x 2,7 x 2,5 »), confirmée, ou propagée. Les pièces créées depuis la 4.2 naissent avec `hspOk:false`
+  même quand la hauteur est copiée de la pièce précédente. Les pièces d'avant n'ont pas le drapeau : toute
+  hauteur différente du 2,5 par défaut est considérée relevée (heuristique assumée).
+- À l'envoi : « Hauteur sous plafond non relevée : … » et « Ouvrants non relevés : … », avec → Corriger.
+  Payload par pièce : `hsp_relevee`, `sans_ouvrant`.
 
 ## Le croquis, ce qui a été appris à l'usage
 

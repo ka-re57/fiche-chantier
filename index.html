@@ -105,6 +105,10 @@ textarea{min-height:90px;resize:vertical;line-height:1.4}
   cursor:pointer;padding:0;touch-action:manipulation}
 .kx:active{filter:brightness(.85)}
 .reprise{display:flex;gap:6px;align-items:stretch;margin-bottom:6px}
+.surplace{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:8px;font-size:14px}
+.surplace .sp{padding:4px 0}
+.surplace .sp.ok{color:var(--ok)}
+.surplace .sp.ko{color:var(--mal);font-weight:600}
 .reprise .btn.large{flex:1;margin:0}
 .reprise .btn.mini{min-width:44px}
 .champ label.ch{margin-top:8px}
@@ -298,7 +302,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "4.1";
+var VERSION = "4.2";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -1842,6 +1846,18 @@ function blocVase(a){
 function vuePieces(a){
   a.appendChild(el("h2",null,"Pièces et dimensionnement"));
   a.appendChild(el("p","aide","Longueur et largeur suffisent : surfaces et murs se calculent tout seuls. Les puissances sont un pré-dimensionnement."));
+  /* v4.2 — le client fournit les plans : on ne retape pas les surfaces, mais les hauteurs et les
+     fenetres n'y sont pas. Ce qui manque est dit sur chaque piece et a l'envoi. */
+  var bpc=el("button","et"+(V.plansClient?" on-ok":""),
+    V.plansClient ? "✓ Surfaces sur les plans du client — sur place : hauteurs et ouvrants" : "📐 Les surfaces viendront des plans du client");
+  bpc.type="button"; bpc.style.width="100%"; bpc.style.marginBottom="8px";
+  bpc.onclick=function(){
+    V.plansClient=!V.plansClient;
+    if(V.plansClient){ V.docs=V.docs||[]; if(V.docs.indexOf("Plans / cadastre")<0) V.docs.push("Plans / cadastre"); }
+    sauverTout(); rendre();
+  };
+  a.appendChild(bpc);
+  if(V.plansClient) a.appendChild(el("p","mini","Les plans donnent longueurs et largeurs, rarement les hauteurs, jamais les fenêtres. Sur place : la hauteur de chaque pièce (ou d'un niveau d'un coup, bouton ⇊) et les ouvrants largeur × hauteur. « Plans / cadastre » est coché dans « À récupérer auprès du client »."));
 
   if(!V.pieces.length) a.appendChild(el("p","aide","Aucune pièce. Appuie sur « Ajouter une pièce »."));
   V.pieces.forEach(function(P,i){ cartePiece(a,P,i); });
@@ -1942,7 +1958,7 @@ function ouvrirPiecesTypes(){
       if(!ok) niv="RDC";
       if(toutAuRdc() && niv==="1er étage") niv="RDC";
       V.pieces.push({pid:idUnique("p"), nom:P.n, lg:"", la:"", surf:"",
-        hsp: last?last.hsp:"2,5", niveau:niv, circuit: last?last.circuit:"",
+        hsp: last?last.hsp:"2,5", hspOk:false, niveau:niv, circuit: last?last.circuit:"",
         murs:[], rads:[], clim:{traite:"",empl:"",liaison:"",mode:""}, photos:[], croquis:[]});
       murs4(V.pieces[V.pieces.length-1]);
       n++;
@@ -1959,7 +1975,7 @@ function ouvrirPiecesTypes(){
 }
 function ajouterPiece(){
   var last=V.pieces[V.pieces.length-1];
-  var P={pid:idUnique("p"), nom:"", lg:"", la:"", surf:"", hsp: last?last.hsp:"2,5", niveau:"", circuit: last?last.circuit:"",
+  var P={pid:idUnique("p"), nom:"", lg:"", la:"", surf:"", hsp: last?last.hsp:"2,5", hspOk:false, niveau:"", circuit: last?last.circuit:"",
          murs:[], rads:[], clim:{traite:"",empl:"",liaison:"",mode:""}, photos:[], croquis:[]};
   murs4(P);
   V.pieces.push(P);
@@ -2028,6 +2044,35 @@ function piecesSansEmetteur(){
   });
   return out;
 }
+/* v4.2 — ce qui ne vient jamais des plans : la hauteur et les fenetres. Une hauteur est
+   « relevee » si Remi l'a tapee ou confirmee (P.hspOk). Les pieces creees avant la 4.2 n'ont pas
+   le drapeau : on considere relevee toute hauteur differente du 2,5 par defaut. */
+function hspRelevee(P){
+  if(P.hspOk===true) return true;
+  if(P.hspOk===false) return false;
+  return !!(txt(P.hsp) && P.hsp!=="2,5");
+}
+function nbOuvrants(P){
+  var n=0;
+  (P.murs||[]).forEach(function(M){
+    (M.ouv||[]).forEach(function(O){ if(nb(O.l)!==null && nb(O.h)!==null) n++; });
+    if(!(M.ouv||[]).length && nb(M.vit)>0) n++;
+  });
+  return n;
+}
+function lotThermique(){ return aLotPac()||aLotClim()||aLotHydraulique(); }
+/* pieces chauffees dont la hauteur n'est pas relevee, ou sans aucun ouvrant ni « sans ouvrant » */
+function relevesManquants(){
+  var out={hsp:[], ouv:[]};
+  if(!lotThermique()) return out;
+  V.pieces.forEach(function(P,i){
+    if(P.annexe) return;
+    var nomP=txt(P.nom)||"Pièce "+(i+1);
+    if(!hspRelevee(P)) out.hsp.push(nomP);
+    if(!nbOuvrants(P) && !P.sansOuv) out.ouv.push(nomP);
+  });
+  return out;
+}
 /* v4.1 — un radiateur de « 0,6 » est en metres : 60 cm. Sous 10, ce n'est jamais des cm. */
 function radEnCm(R,k){
   var v=nb(R[k]);
@@ -2054,9 +2099,9 @@ function cartePiece(a,P,idx){
 
   champ(w,"Nom de la pièce", P.nom, function(v){ P.nom=v; });
   var r=el("div","rang"); w.appendChild(r);
-  var iL=champ(r,"Longueur (m)", P.lg, function(v){ P.lg=v; majCalculs(); }, "number", "4,9 ou 4,9 x 2,7", true);
-  var il=champ(r,"Largeur (m)", P.la, function(v){ P.la=v; majCalculs(); }, "number", "", true);
-  var iH=champ(r,"Hauteur sous plafond (m)", P.hsp, function(v){ P.hsp=v; majCalculs(); }, "number", "", true);
+  var iL=champ(r,"Longueur (m)", P.lg, function(v){ P.lg=v; majCalculs(); }, "number", V.plansClient?"sur les plans":"4,9 ou 4,9 x 2,7", true);
+  var il=champ(r,"Largeur (m)", P.la, function(v){ P.la=v; majCalculs(); }, "number", V.plansClient?"sur les plans":"", true);
+  var iH=champ(r,"Hauteur sous plafond (m)", P.hsp, function(v){ P.hsp=v; P.hspOk=!!txt(v); majCalculs(); }, "number", "", true);
   function eclaterVers(i, cles){
     i.addEventListener("change", function(){
       /* Chrome envoie un change quand un champ modifie au clavier est retire du DOM :
@@ -2065,7 +2110,7 @@ function cartePiece(a,P,idx){
       if(RENDU_EN_COURS || !document.body.contains(this)) return;
       var c=eclaterCotes(this.value);
       if(!c) return;
-      for(var k=0;k<c.length && k<cles.length;k++) P[cles[k]]=c[k];
+      for(var k=0;k<c.length && k<cles.length;k++){ P[cles[k]]=c[k]; if(cles[k]==="hsp") P.hspOk=true; }
       sauverTout(); rendre();
       toast("Cotes réparties : "+c.join(" × ")+" m","ok");
     });
@@ -2085,6 +2130,35 @@ function cartePiece(a,P,idx){
   bpl.type="button"; bpl.style.marginTop="8px";
   bpl.onclick=function(){ P.plaud = P.plaud ? "" : new Date().toISOString(); sauverTout(); rendre(); };
   w.appendChild(bpl);
+  /* v4.2 — ce que les plans ne donnent pas : la hauteur (a taper ou a confirmer, ou la meme pour
+     tout le niveau) et les ouvrants (ou « sans ouvrant » pour un WC). */
+  if(lotThermique() && !P.annexe){
+    var spz=el("div","surplace");
+    var hOk=hspRelevee(P), nO=nbOuvrants(P);
+    spz.appendChild(el("span","sp"+(hOk?" ok":" ko"), hOk ? "✓ Hauteur "+P.hsp+" m" : "✗ Hauteur à relever"+(txt(P.hsp)?" ("+P.hsp+" m par défaut)":"")));
+    if(!hOk && txt(P.hsp)){
+      var bh=el("button","btn mini","✓ "+P.hsp+" m, c'est bon"); bh.type="button";
+      bh.onclick=function(){ P.hspOk=true; sauverTout(); rendre(); };
+      spz.appendChild(bh);
+    }
+    if(txt(P.hsp) && V.pieces.length>1){
+      var bn=el("button","btn mini","⇊ Même hauteur : "+(txt(P.niveau)?P.niveau:"toutes les pièces")); bn.type="button";
+      bn.onclick=function(){
+        var k=0;
+        V.pieces.forEach(function(Q){ if(Q.pid===P.pid || Q.annexe) return; if(txt(P.niveau) && Q.niveau!==P.niveau) return; Q.hsp=P.hsp; Q.hspOk=true; k++; });
+        P.hspOk=true; sauverTout(); rendre();
+        toast(P.hsp+" m appliqué à "+k+" autre"+(k>1?"s":"")+" pièce"+(k>1?"s":""),"ok");
+      };
+      spz.appendChild(bn);
+    }
+    spz.appendChild(el("span","sp"+((nO||P.sansOuv)?" ok":" ko"), nO ? "✓ "+nO+" ouvrant"+(nO>1?"s":"") : (P.sansOuv ? "✓ Sans ouvrant" : "✗ Ouvrants à relever")));
+    if(!nO){
+      var bo=el("button","btn mini", P.sansOuv ? "Finalement il y en a" : "Sans ouvrant"); bo.type="button";
+      bo.onclick=function(){ P.sansOuv=!P.sansOuv; sauverTout(); rendre(); };
+      spz.appendChild(bo);
+    }
+    w.appendChild(spz);
+  }
   var s=surfacePiece(P);
   if(s!==null && !txt(P.surf)) w.appendChild(el("p","mini","Surface calculée : "+fmt(s,1)+" m²"));
   if(nb(P.lg)===null || nb(P.la)===null || txt(P.surf))
@@ -2434,7 +2508,7 @@ function maisonIncoherences(){
         out.push({t:"att", vue:"pieces", m:nomP+", émetteur "+(k+1)+" : "+(l!==null&&l<10?R.lg:R.h)+" cm — les radiateurs se notent en centimètres (60, pas 0,6)."});
     });
   });
-  if(nsc && npc>=2 && (V.docs||[]).indexOf("Plans / cadastre")<0)
+  if(nsc && npc>=2 && !V.plansClient && (V.docs||[]).indexOf("Plans / cadastre")<0)
     out.push({t:"att", vue:"notes", m:nsc+" pièce"+(nsc>1?"s":"")+" sans cotes ni surface : aucune puissance ne sortira. Si les surfaces viennent des plans du client, coche « Plans / cadastre » dans Notes."});
   if(!V.aides.souhaite && (V.docs||[]).indexOf("Avis d'imposition du foyer")>=0)
     out.push({t:"att", vue:"client", m:"Avis d'imposition demandé mais « Aides de l'État » non cochées : sans ça, ni note de dimensionnement pré-remplie, ni liste des pièces au client."});
@@ -2762,6 +2836,9 @@ function vueEnvoi(a){
     pb.push({t:"mal", vue:"pieces", m:x.piece+", "+x.mur+" : surface vitrée "+fmt(x.vit,2)+" m² pour un mur de "+fmt(x.brut,2)+" m² — unité fausse ?"});
   });
   maisonIncoherences().forEach(function(x){ pb.push(x); });
+  var rm=relevesManquants();
+  if(rm.hsp.length) pb.push({t:"att", vue:"pieces", m:"Hauteur sous plafond non relevée : "+rm.hsp.join(", ")+" — tape-la, ou confirme la valeur affichée (les plans ne la donnent pas)."});
+  if(rm.ouv.length) pb.push({t:"att", vue:"pieces", m:"Ouvrants non relevés : "+rm.ouv.join(", ")+" — largeur × hauteur de chaque fenêtre, ou « Sans ouvrant »."});
   var pse=piecesSansEmetteur();
   if(pse.length) pb.push({t:"att", vue:"pieces", m:"Sans émetteur relevé : "+pse.join(", ")+" — pièce froide à signaler, ou oubli ?"});
   manquesNdd().forEach(function(m){ pb.push({t:"att", vue:"ndd", m:m}); });
@@ -3278,8 +3355,8 @@ function payload(statut){
   var pieces = V.pieces.map(function(P,i){
     var c=calcPiece(P);
     return {numero:i+1, nom:propre(P.nom), longueur_m:nb(P.lg), largeur_m:nb(P.la),
-      surface_m2:surfacePiece(P), hsp_m:nb(P.hsp), niveau:propre(P.niveau), circuit:P.circuit||null,
-      annexe_non_chauffee: !!P.annexe,
+      surface_m2:surfacePiece(P), hsp_m:nb(P.hsp), hsp_relevee:hspRelevee(P), niveau:propre(P.niveau), circuit:P.circuit||null,
+      annexe_non_chauffee: !!P.annexe, sans_ouvrant: !!P.sansOuv,
       dicte_plaud: P.plaud||null,
       volume_m3: c.vol?Math.round(c.vol*10)/10:null,
       murs: P.murs.map(function(M){
@@ -3411,6 +3488,7 @@ function payload(statut){
     }),
     notes:{ce_que_je_retiens:propre(V.notes.retiens), reserves:propre(V.notes.reserves)},
     documents_a_demander:(V.docs||[]),
+    surfaces_sur_plans_client: !!V.plansClient,
     pieces_sans_emetteur:piecesSansEmetteur(),
     points_a_confirmer: pointsOuverts(),
     postes_obligatoires: postesObligatoires(),
@@ -5751,7 +5829,7 @@ function ouvrirCroquis(C, apresFermeture){
             V.pieces.forEach(function(P){ if(sansAccent(txt(P.nom))===sansAccent(txt(E.nom))) vise=P; });
             if(!vise){
               vise={pid:idUnique("p"), nom:txt(E.nom)||"Pièce", lg:"", la:"", surf:"",
-                    hsp:"2,5", niveau:NIVEAUX[nivDe(E)]||"RDC", circuit:"",
+                    hsp:"2,5", hspOk:false, niveau:NIVEAUX[nivDe(E)]||"RDC", circuit:"",
                     murs:[], rads:[], clim:{traite:"",empl:"",liaison:"",mode:""}, photos:[], croquis:[]};
               murs4(vise);
               V.pieces.push(vise);
