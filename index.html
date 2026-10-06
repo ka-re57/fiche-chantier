@@ -302,7 +302,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "4.4";
+var VERSION = "4.5";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -967,7 +967,11 @@ function collerListe(t){
 var vue = (txt(V.client.nom)||V.lots.length) ? "client" : "accueil";
 var filtreListe = "";
 
-function aller(v){ vue=v; rendre(); window.scrollTo(0,0); }
+function aller(v){
+  /* v4.5 — on quitte peut-etre un champ « 1,2 x 1,35 » sans l'avoir valide */
+  if(V && V.pieces && normaliserSaisies().length) sauverTout();
+  vue=v; rendre(); window.scrollTo(0,0);
+}
 /* Sur Android, le bouton retour quitte l'application : ici il ferme d'abord
    ce qui est ouvert, pour ne jamais perdre un croquis en cours. */
 function retourArriere(){
@@ -1304,6 +1308,56 @@ function eclaterCotes(v){
   }
   return out.length>=2 && out.length<=3 ? out : null;
 }
+/* v4.5 — « 1,2 x 1,35 » tape avec la touche × restait tel quel dans le champ (STEPHAN, 06/10) :
+   la repartition et les conversions d'unite etaient accrochees a l'evenement change, qui ne part
+   jamais quand on quitte le champ au doigt. rendre() recree l'input a chaque touche, le navigateur
+   ne voit donc plus de modification « utilisateur » au moment du blur ; seule la touche Entree
+   (chainer) le declenchait. On normalise desormais les donnees elles-memes : a la sortie d'un
+   champ numerique, au changement d'onglet et avant tout envoi. Rien n'est touche pendant la frappe. */
+function normaliserSaisies(){
+  var faits=[];
+  function cm(R,k){ var v=nb(R[k]); if(v!==null && v>0 && v<10 && /^[\d.,\s]+$/.test(String(R[k]))){ R[k]=virgule(Math.round(v*100)); faits.push(virgule(v)+" m → "+R[k]+" cm"); } }
+  (V.pieces||[]).forEach(function(P){
+    var c=eclaterCotes(P.lg);
+    if(c){ P.lg=c[0]; P.la=c[1]; if(c.length>2){ P.hsp=c[2]; P.hspOk=true; } faits.push("Cotes "+c.join(" × ")+" m"); }
+    c=eclaterCotes(P.la);
+    if(c){ P.la=c[0]; P.hsp=c[1]; P.hspOk=true; faits.push("Largeur × hauteur "+c.join(" × ")+" m"); }
+    var h=nb(P.hsp);
+    if(h!==null && h>=100){ P.hsp=virgule(h/100); faits.push(fmt(h,0)+" cm → "+P.hsp+" m"); }
+    (P.murs||[]).forEach(function(M){
+      (M.ouv||[]).forEach(function(O){
+        var co=eclaterCotes(O.l);
+        if(co){ O.l=co[0]; O.h=co[1]; faits.push("Ouvrant "+co[0]+" × "+co[1]+" m"); }
+      });
+      var cv=eclaterCotes(M.vit);
+      if(cv){ M.ouv=M.ouv||[]; M.ouv.push({l:cv[0],h:cv[1]}); M.vit=""; M.vitManuel=false; faits.push("Ouvrant "+cv[0]+" × "+cv[1]+" m ajouté"); }
+    });
+    (P.rads||[]).forEach(function(R){
+      var cr=eclaterCotes(R.lg);
+      if(cr){ R.lg=cr[0]; R.h=cr[1]; if(cr.length>2) R.nb=cr[2]; faits.push("Radiateur "+cr.join(" × ")+" cm"); }
+      cm(R,"lg"); cm(R,"h");
+      var e=nb(R.ep);
+      if(e!==null && e>0 && e<1){ R.ep=virgule(Math.round(e*100)); faits.push(virgule(e)+" m → "+R.ep+" cm"); }
+      else if(e!==null && e>=40){ R.ep=virgule(Math.round(e/10)); faits.push(virgule(e)+" mm → "+R.ep+" cm"); }
+    });
+  });
+  /* une touche × restee sans suite (« 1,2 x ») : on garde juste le nombre */
+  (V.pieces||[]).forEach(function(P){
+    [P].concat(P.rads||[]).forEach(function(X){ ["lg","la","h"].forEach(function(k){
+      if(typeof X[k]==="string" && /^\s*[\d.,]+\s*[x×X*\/;-]\s*$/.test(X[k])){ X[k]=X[k].replace(/\s*[x×X*\/;-]\s*$/,""); } }); });
+    (P.murs||[]).forEach(function(M){ (M.ouv||[]).forEach(function(O){
+      if(typeof O.l==="string" && /^\s*[\d.,]+\s*[x×X*\/;-]\s*$/.test(O.l)){ O.l=O.l.replace(/\s*[x×X*\/;-]\s*$/,""); } }); });
+  });
+  return faits;
+}
+function normaliserApresSaisie(){
+  if(RENDU_EN_COURS) return false;
+  var faits=normaliserSaisies();
+  if(!faits.length) return false;
+  sauverTout(); rendre();
+  toast(faits.length>2 ? faits.slice(0,2).join(" · ")+" · +"+(faits.length-2) : faits.join(" · "),"ok");
+  return true;
+}
 function chainer(inputs){
   inputs.forEach(function(i,k){
     var dernier = k===inputs.length-1;
@@ -1329,7 +1383,13 @@ function champ(parent, lib, val, onc, type, ph, fois){
      de type number, lui assigner "10." le vide silencieusement, et la saisie repart
      de zero a chaque chiffre apres la virgule. */
   i.type=type||"text";
-  if(type==="number") champNombre(i);
+  if(type==="number"){
+    champNombre(i);
+    /* v4.5 — a la sortie du champ au doigt. Un blur pendant rendre() (champ retire du DOM
+       a chaque touche) n'est pas une sortie : on l'ignore. Le setTimeout laisse le focus
+       arriver sur le champ suivant, que rendre() retrouve ensuite par son data-ch. */
+    i.addEventListener("blur", function(){ if(RENDU_EN_COURS) return; setTimeout(normaliserApresSaisie, 0); });
+  }
   i.value=val||""; if(ph) i.placeholder=ph;
   i.setAttribute("data-ch", lib+"#"+(champIdx++));
   i.oninput=function(){ onc(this.value); sauver(); };
@@ -3976,6 +4036,7 @@ function viderFile(manuel){
   suivant();
 }
 function envoyer(statut){
+  if(normaliserSaisies().length) sauverTout();
   /* Rien n'est obligatoire : c'est sa fiche, il l'envoie comme il veut.
      On signale, on n'interdit pas. */
   sauverTout();

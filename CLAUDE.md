@@ -372,6 +372,26 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
   d'épaisseur n'existe pas, au-dessus c'est des millimètres. `radEnCm` n'est pas utilisé ici : sa
   règle « < 10 = des mètres » aurait transformé 8 cm en 800.
 
+## v4.5 — la touche × ne faisait rien au doigt (06/10/2026, chez STEPHAN)
+
+- Constat terrain : « 1,2 x 1,35 » tapé avec la touche × dans la largeur d'un ouvrant restait tel
+  quel, l'envoi réclamait l'ouvrant ; pareil pour « 80 x 60 x 2 » sur un radiateur. Cause : la
+  répartition et les conversions d'unité (hsp en cm, radiateur en m, épaisseur en mm) étaient
+  accrochées à l'événement `change`. Or `majCalculs()` appelle `rendre()` à chaque touche, qui
+  recrée l'input et y remet la valeur par programme : au blur, le navigateur ne voit aucune
+  modification « utilisateur », donc pas de `change`. Seule la touche Entrée marchait, parce que
+  `chainer` dispatche un `change` à la main. Les tests Playwright passaient pour la même raison.
+- Correctif : `normaliserSaisies()` travaille sur les données (`P.lg/la/hsp`, `M.ouv[].l`, `M.vit`,
+  `R.lg/h/nb/ep`) et non sur les événements. Appelée par `normaliserApresSaisie()` au `blur` de tout
+  champ numérique (dans `champ()`, via `setTimeout(0)` pour laisser le focus arriver sur le champ
+  suivant que `rendre()` retrouve par son `data-ch`), dans `aller()` et au début de `envoyer()`. Un
+  blur pendant `rendre()` (`RENDU_EN_COURS`) est ignoré : c'est l'input retiré du DOM, pas une sortie.
+  Rien n'est touché pendant la frappe, donc « 1,2 x 1 » ne se répartit pas trop tôt (le bug 3.8).
+  Les anciens écouteurs `change` restent, ils ne font plus que doubler sans effet.
+- Test qui fait foi : `t45.mjs` — contexte `hasTouch`, saisie au clavier, `pointerdown` sur `.kx`,
+  puis focus sur un autre champ ou une puce **sans Entrée**. Il échoue sur la 4.4 (6 cas) et passe
+  sur la 4.5. Ne plus tester une sortie de champ avec `dispatchEvent(new Event("change"))`.
+
 ## Le croquis, ce qui a été appris à l'usage
 
 Deux formats de page figés ne tombent jamais juste : le plan finit dans un coin avec du blanc
