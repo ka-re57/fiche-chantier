@@ -302,7 +302,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 "use strict";
-var VERSION = "4.5";
+var VERSION = "4.6";
 /* Android n'applique :active que si la page ecoute le tactile quelque part.
    Sans cet ecouteur vide, le retour au doigt ne se declenche pas sur la tablette. */
 try{ document.addEventListener("touchstart", function(){}, false); }catch(e){}
@@ -402,7 +402,8 @@ var LOTS = [
    {k:"emetteurs", l:"Nature des émetteurs", t:"chx",
     opts:["Plancher chauffant","Radiateurs basse température","Radiateurs haute température","Mixte"],
     i:"Le détail pièce par pièce est dans l'onglet Pièces"},
-   {k:"regime", l:"Régime de fonctionnement visé", t:"chx", opts:["35/30","45/40","55/45","65/55","À déterminer"]},
+   {k:"regime", l:"Régime de fonctionnement visé", t:"chx", opts:["35/30","45/40","55/45","65/55","À déterminer"], bureau:true,
+    i:"Se déduit des émetteurs relevés et du calcul — à trancher pendant l'étude"},
    {k:"emplue", l:"Emplacement du groupe extérieur — dégagements, distance, dénivelé, voisinage"},
    {k:"supportue", l:"Support du groupe extérieur", t:"chx",
     opts:["Plots au sol","Dalle béton à prévoir","Dalle fournie par le client","Console murale","À voir"]},
@@ -413,8 +414,8 @@ var LOTS = [
    {k:"elec", l:"Alimentation électrique", t:"chx", opts:["Monophasé","Triphasé","À vérifier"]},
    {k:"tableau", l:"Tableau électrique — place, calibre, ligne dédiée possible ?"},
    {k:"cond", l:"Évacuation des condensats du groupe extérieur", t:"chx", opts:["Prévue","À créer","À voir"]},
-   {k:"ballon", l:"Ballon tampon", t:"chx", opts:["Non","50 L","100 L","200 L","À déterminer"],
-    i:"Si volume d'eau insuffisant, multi-zones, ou plancher + radiateurs"},
+   {k:"ballon", l:"Ballon tampon", t:"chx", opts:["Non","50 L","100 L","200 L","À déterminer"], bureau:true,
+    i:"Si volume d'eau insuffisant, multi-zones, ou plancher + radiateurs — se décide au calcul"},
    {k:"ecs", l:"Production d'eau chaude", t:"chx",
     opts:["PAC double service","Ballon thermodynamique séparé","Ballon existant conservé","Chauffe-eau à remplacer"]},
    {k:"nbpers", l:"Nombre de personnes dans le logement", t:"num", u:"personnes"},
@@ -1139,7 +1140,7 @@ function rendreOnglets(){
   ong("croquis","✏️ Croquis", "", ncr?String(ncr):"");
   if(besoinNdd()){
     var N=ndd();
-    ong("ndd","📄 Note dim.", (N.p===null?"!":""), (N.classe==="ok"?"✓":""));
+    ong("ndd","📄 Note dim.", (N.cran.manque.length?"!":""), (N.classe==="ok"?"✓":""));
   }
   ong("notes","📝 Notes");
   var p=el("button","ong","＋ lot"); p.type="button"; p.onclick=ouvrirLots; o.appendChild(p);
@@ -1593,13 +1594,14 @@ function vueMaison(a){
   if(aLotPac() || gBase(nb(V.client.annee))===null){
   var b2b=bloc(a,aLotPac()?"Isolation \u2014 description pour la note de dimensionnement":"Isolation \u2014 \u00e9paisseurs (ann\u00e9e inconnue : c'est ce qui donne le G)",null,gBase(nb(V.client.annee))===null);
   b2b.appendChild(el("p","mini","La grille du dossier d'aide ne conna\u00eet que des \u00e9paisseurs. C'est ce qui d\u00e9termine le cran d\u00e9clar\u00e9, et c'est ce qu'un contr\u00f4leur v\u00e9rifie sur place."));
-  puces(b2b,"\u00c9paisseur d'isolant dans les murs",["Non isol\u00e9s","5 cm","10 cm et plus"],M.mur_cm,
+  b2b.appendChild(el("p","mini","\u00ab Inconnu \u00bb si tu ne peux pas le voir : le cran se d\u00e9cidera au bureau d'apr\u00e8s l'ann\u00e9e de construction, rien ne bloque."));
+  puces(b2b,"\u00c9paisseur d'isolant dans les murs",["Non isol\u00e9s","5 cm","10 cm et plus","Inconnu"],M.mur_cm,
         function(v){ M.mur_cm=v; sauver(); rendre(); });
-  puces(b2b,"\u00c9paisseur en combles",["Non isol\u00e9es","6 cm","10 cm","20 cm et plus"],M.toit_cm,
+  puces(b2b,"\u00c9paisseur en combles",["Non isol\u00e9es","6 cm","10 cm","20 cm et plus","Inconnu"],M.toit_cm,
         function(v){ M.toit_cm=v; sauver(); rendre(); });
-  puces(b2b,"Plancher bas",["Non isol\u00e9","3 cm","10 cm et plus","Sur terre-plein"],M.plancher_cm,
+  puces(b2b,"Plancher bas",["Non isol\u00e9","3 cm","10 cm et plus","Sur terre-plein","Inconnu"],M.plancher_cm,
         function(v){ M.plancher_cm=v; sauver(); rendre(); });
-  puces(b2b,"Vitrage",["Simple","Double de plus de 15 ans","Double de moins de 15 ans","Triple"],M.vitrage,
+  puces(b2b,"Vitrage",["Simple","Double de plus de 15 ans","Double de moins de 15 ans","Triple","Inconnu"],M.vitrage,
         function(v){ M.vitrage=v; sauver(); rendre(); });
   var cn=cranNDD();
   var ci=el("p","mini");
@@ -1698,7 +1700,15 @@ function vueLot(a, L){
   a.appendChild(raf);
 
   var corps=el("div"); a.appendChild(corps);
-  questions(L).forEach(function(q){ rendreQuestion(corps,L,q); });
+  /* v4.6 — les questions qui se tranchent pendant l'etude (regime, ballon tampon) sont rangees a
+     part, repliees, et ne comptent pas dans les « questions sans reponse » de l'envoi. */
+  var qb=[];
+  questions(L).forEach(function(q){ if(q.bureau) qb.push(q); else rendreQuestion(corps,L,q); });
+  if(qb.length){
+    var bb=bloc(a,"\ud83c\udfe2 Au bureau \u2014 \u00e0 trancher pendant l'\u00e9tude ("+qb.length+")",null,false);
+    bb.appendChild(el("p","mini","Rien \u00e0 relever sur place pour ces points : ils sortent du calcul. Les remplir ici seulement si le client a une exigence."));
+    qb.forEach(function(q){ rendreQuestion(bb,L,q); });
+  }
 
   if(L.cle==="clim") blocCalculClim(a);
   if(L.cle==="gaz"||L.cle==="pac") blocCalculEau(a);
@@ -2618,10 +2628,10 @@ function maisonIncoherences(){
 /* --- note de dimensionnement : grille a 7 crans du gabarit MaPrime Facile --- */
 var CRANS_NDD = [[0.4,"RE 2020"],[0.6,"RT 2012"],[0.65,"Bien isol\u00e9 \u2014 RT 2005"],
                  [0.8,"Isol\u00e9 \u2014 RT 2000"],[1,"Moyennement isol\u00e9"],[1.4,"Peu isol\u00e9"],[2,"Pas isol\u00e9"]];
-var G_MURS   = {"10 cm et plus":0.65,"5 cm":1,"Non isoles":1.4};
-var G_TOIT   = {"20 cm et plus":0.65,"10 cm":0.8,"6 cm":1,"Non isolees":2};
-var G_PLANCH = {"10 cm et plus":0.65,"3 cm":0.8,"Non isole":2,"Sur terre-plein":0};
-var G_VITRE  = {"Triple":0.65,"Double de moins de 15 ans":0.65,"Double de plus de 15 ans":1,"Simple":2};
+var G_MURS   = {"10 cm et plus":0.65,"5 cm":1,"Non isoles":1.4,"Inconnu":0};
+var G_TOIT   = {"20 cm et plus":0.65,"10 cm":0.8,"6 cm":1,"Non isolees":2,"Inconnu":0};
+var G_PLANCH = {"10 cm et plus":0.65,"3 cm":0.8,"Non isole":2,"Sur terre-plein":0,"Inconnu":0};
+var G_VITRE  = {"Triple":0.65,"Double de moins de 15 ans":0.65,"Double de plus de 15 ans":1,"Simple":2,"Inconnu":0};
 function sansAccent(v){ return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 function cranNDD(){
   var force=nb(V.aides.g_force);
@@ -2783,12 +2793,13 @@ function vueNdd(a){
   var A=V.aides, N=ndd();
   a.appendChild(el("h2",null,"Note de dimensionnement"));
   a.appendChild(el("p","aide","Pi\u00e8ce du dossier d'aide. Elle est remise au client au plus tard \u00e0 l'ach\u00e8vement des travaux, et c'est elle qu'un bureau de contr\u00f4le demande en cas de contr\u00f4le de chantier. Elle engage l'entreprise : les valeurs ci-dessous doivent correspondre \u00e0 ce qui est r\u00e9ellement pos\u00e9."));
+  a.appendChild(el("p","mini","Sur place, une seule chose \u00e0 faire pour la note : d\u00e9crire l'isolation dans l'onglet Maison. Tout le reste se calcule ici ou se remplit au bureau pendant l'\u00e9tude."));
 
   var b1=bloc(a,"B\u00e9n\u00e9ficiaire",null,true);
-  puces(b1,"Civilit\u00e9",["M.","Mme","M. et Mme"],A.civilite,function(v){ A.civilite=v; sauver(); rendre(); });
+  var civ=civiliteAuto();
+  puces(b1,"Civilit\u00e9"+(!txt(A.civilite)&&civ?" \u2014 d\u00e9duite du nom : "+civ:""),["M.","Mme","M. et Mme"],A.civilite,function(v){ A.civilite=v; sauver(); rendre(); });
   champ(b1,"Nom du b\u00e9n\u00e9ficiaire \u2014 le client, sauf si c'est quelqu'un d'autre", A.beneficiaire, function(v){ A.beneficiaire=v; }, "text", txt(V.client.nom)||"nom du client");
   b1.appendChild(el("p","mini","Adresse des travaux : "+(txt(V.client.adresse)||"\u2014")+" "+txt(V.client.ville)));
-  champ(b1,"N\u00b0 de parcelle \u2014 seulement si l'adresse est un lieu-dit sans num\u00e9ro", A.parcelle, function(v){ A.parcelle=v; });
 
   var b2=bloc(a,"\u00c9tat du logement",null,true);
   var cn=N.cran;
@@ -2801,13 +2812,7 @@ function vueNdd(a){
       (cn.force?"<br>Cran forc\u00e9 \u00e0 la main.":"<br>C'est la paroi la plus mauvaise qui commande le cran.")+"</span>";
   }
   b2.appendChild(cw);
-  puces(b2,"Forcer un autre cran",OPTS_CRAN,
-    cranCourant(A.g_force),
-    function(v){
-      A.g_force = (v==="Automatique") ? "" : String(v).split(" ")[0].replace(",",".");
-      sauver(); rendre();
-    });
-  b2.appendChild(el("p","mini","\u26a0 Le cran d\u00e9clar\u00e9 doit \u00eatre justifiable devant un contr\u00f4leur qui vient regarder les combles. Ne le forcer que si tu as constat\u00e9 mieux que ce que la grille laisse dire."));
+  if(cn.g===null) b2.appendChild(el("p","mini","Isolation \u00e0 d\u00e9crire dans l'onglet Maison \u2014 \u00ab Inconnu \u00bb est une r\u00e9ponse : le cran sera alors fix\u00e9 au bureau d'apr\u00e8s l'ann\u00e9e."));
 
   var b3=bloc(a,"Volume chauff\u00e9 par la PAC",null,true);
   var sp=surfacePac();
@@ -2815,9 +2820,6 @@ function vueNdd(a){
     ? "Surface saisie \u00e0 la main."
     : (sp.s===null ? "Aucune pi\u00e8ce exploitable pour l'instant."
        : sp.n+" pi\u00e8ce"+(sp.n>1?"s":"")+" raccord\u00e9e"+(sp.n>1?"s":"")+" \u00e0 la PAC, soit "+fmt(sp.s,1)+" m\u00b2. Les pi\u00e8ces marqu\u00e9es \u00ab non chauff\u00e9e par la PAC \u00bb dans l'onglet Pi\u00e8ces sont exclues.")));
-  var r1=el("div","rang"); b3.appendChild(r1);
-  champ(r1,"Surface chauff\u00e9e \u2014 forcer (m\u00b2)", A.surf_pac, function(v){ A.surf_pac=v; majCalculs(); rendre(); }, "number");
-  champ(r1,"Hauteur sous plafond \u2014 forcer (m)", A.hsp_pac, function(v){ A.hsp_pac=v; majCalculs(); rendre(); }, "number");
   var vc=el("div","calc");
   vc.innerHTML = (N.volume===null)
     ? "<span style='color:var(--att)'>Volume incalculable : il manque la surface ou la hauteur sous plafond.</span>"
@@ -2833,7 +2835,21 @@ function vueNdd(a){
     "<br>Fourchette du DTU 65.16 : "+fmt(N.dtuMin,2)+" \u00e0 "+fmt(N.dtuMax,2)+" kW (70 \u00e0 100 %).</span>";
   b4.appendChild(pc);
 
-  var b5=bloc(a,"La machine retenue",null,true);
+  /* v4.6 — tout ce qui se decide pendant l'etude est range ici, replie : rien a saisir sur place */
+  var b5=bloc(a,"\ud83c\udfe2 Au bureau \u2014 rempli pendant l'\u00e9tude, rien \u00e0 saisir sur place",null,false);
+  b5.appendChild(el("p","mini","Machine retenue, puissance, taux de couverture, parcelle et crans forc\u00e9s : Claude les remplit au chiffrage \u00e0 partir de la fiche technique et du cadastre. Ces cases restent modifiables."));
+  champ(b5,"N\u00b0 de parcelle \u2014 seulement si l'adresse est un lieu-dit sans num\u00e9ro", A.parcelle, function(v){ A.parcelle=v; });
+  puces(b5,"Forcer un autre cran",OPTS_CRAN,
+    cranCourant(A.g_force),
+    function(v){
+      A.g_force = (v==="Automatique") ? "" : String(v).split(" ")[0].replace(",",".");
+      sauver(); rendre();
+    });
+  b5.appendChild(el("p","mini","\u26a0 Le cran d\u00e9clar\u00e9 doit \u00eatre justifiable devant un contr\u00f4leur qui vient regarder les combles. Ne le forcer que si on a constat\u00e9 mieux que ce que la grille laisse dire."));
+  var r1=el("div","rang"); b5.appendChild(r1);
+  champ(r1,"Surface chauff\u00e9e \u2014 forcer (m\u00b2)", A.surf_pac, function(v){ A.surf_pac=v; majCalculs(); rendre(); }, "number");
+  champ(r1,"Hauteur sous plafond \u2014 forcer (m)", A.hsp_pac, function(v){ A.hsp_pac=v; majCalculs(); rendre(); }, "number");
+  b5.appendChild(el("p","mini","La machine retenue"));
   var r2=el("div","rang"); b5.appendChild(r2);
   champ(r2,"Temp\u00e9rature ext\u00e9rieure d'arr\u00eat de la PAC (\u00b0C)", A.pac_arret, function(v){ A.pac_arret=v; }, "number", "ex. -20, sur la fiche produit");
   champ(r2,"Puissance de la PAC (kW)", A.pac_puissance, function(v){ A.pac_puissance=v; majCalculs(); rendre(); }, "number");
@@ -2848,7 +2864,7 @@ function vueNdd(a){
     var vv=el("div","calc");
     vv.style.borderLeft="4px solid var(--"+(N.classe==="ok"?"ok":(N.classe==="mal"?"mal":"att"))+")";
     vv.innerHTML="<b>"+N.verdict+"</b><br><span class='mini'>"+fmt(N.pac,2)+" kW pos\u00e9s pour "+fmt(N.p,2)+" kW de besoin.</span>";
-    a.appendChild(vv);
+    b5.appendChild(vv);
   }
 
   var z=el("div"); z.style.marginTop="12px";
@@ -2870,7 +2886,7 @@ function texteNdd(){
   function l(k,v){ if(v!==null&&v!==undefined&&String(v).trim()!=="") L.push(k+" : "+v); }
   L.push("NOTE DE DIMENSIONNEMENT \u2014 gabarit MaPrime Facile");
   L.push("");
-  l("B\u00e9n\u00e9ficiaire", txt(A.civilite)+" "+(txt(A.beneficiaire)||txt(V.client.nom)));
+  l("B\u00e9n\u00e9ficiaire", civiliteNdd()+" "+(txt(A.beneficiaire)||txt(V.client.nom)));
   l("Adresse des travaux", txt(V.client.adresse)+" "+txt(V.client.ville));
   l("N\u00b0 de parcelle", A.parcelle);
   L.push("");
@@ -2952,6 +2968,7 @@ function vueEnvoi(a){
   var ouv=[];
   V.lots.forEach(function(L){
     questions(L).forEach(function(q){
+      if(q.bureau) return;
       var r=L.rep[q.k];
       if(!r || (!r.e && !txt(r.v))) ouv.push({lot:(L.nom||defLot(L.cle).court), q:q.l, t:"vide", lid:L.lid});
       else if(r.e==="voir") ouv.push({lot:(L.nom||defLot(L.cle).court), q:q.l, t:"voir", lid:L.lid});
@@ -3094,6 +3111,9 @@ function ouvrirReprise(){
           b.disabled=true; b.textContent="Chargement…";
           reprendreDepuisMake(x.fiche_id, function(res){
             if(!res.ok){ b.disabled=false; b.textContent="⤒ "+(x.client||"sans nom"); toast(res.m,"mal"); return; }
+            /* v4.6 — une fiche preparee d'avance (depuis le plan) porte la date de sa preparation :
+               la visite, c'est aujourd'hui. Le fichier Drive prend ainsi la bonne date a l'envoi. */
+            if(/pr\u00e9par\u00e9e par Claude/i.test(x.appareil||"")){ V.date=aujourdhui(); sauverTout(); }
             dt.close(); aller("client");
             toast((res.remplace?"Fiche mise à jour : ":"Fiche reprise : ")+res.nom,"ok");
           });
@@ -3519,7 +3539,7 @@ function payload(statut){
     note_de_dimensionnement: besoinNdd() ? (function(){
       var N=ndd();
       return {gabarit:"NDD MPF — MaPrime Facile", a_remplir:true,
-        beneficiaire:{civilite:V.aides.civilite, nom:propre(V.aides.beneficiaire||V.client.nom),
+        beneficiaire:{civilite:civiliteNdd()||null, civilite_deduite:!txt(V.aides.civilite)&&!!civiliteAuto(), nom:propre(V.aides.beneficiaire||V.client.nom),
           adresse:propre(V.client.adresse), commune:villeClient()||null,
           parcelle:propre(V.aides.parcelle)},
         etat_logement:N.cran.libelle||null, coefficient_G:N.cran.g,
@@ -3647,14 +3667,23 @@ function photosManquantes(){
   });
   return out;
 }
+/* v4.6 — la civilite se lit dans le nom de la societe Axonaut (« Mme Bordonne Manon ») ; sinon le bureau la met. */
+function civiliteAuto(){
+  var n=txt(V.client.nom)||txt(V.societe)||"";
+  if(/^(M\.|Mr|Monsieur)\s*(et|&)\s*(Mme|Madame)\b/i.test(n) || /^(Mme|Madame)\s*(et|&)\s*(M\.|Mr|Monsieur)\b/i.test(n)) return "M. et Mme";
+  if(/^(Mme|Madame|Mlle)\b/i.test(n)) return "Mme";
+  if(/^(M\.|Mr\.?|Monsieur)\s/i.test(n)) return "M.";
+  return "";
+}
+function civiliteNdd(){ return txt(V.aides.civilite) || civiliteAuto(); }
+/* v4.6 — sur le chantier, la note ne reclame que ce qui se constate sur place : l'isolation.
+   La surface et la hauteur ont deja leurs alertes (emetteurs, hauteurs a relever) ; la civilite se
+   deduit du nom ; la machine, sa puissance et le taux de couverture se decident pendant l'etude,
+   au bureau (STEPHAN, 06/10 : « certaines reponses devraient arriver pendant qu'on fait l'etude »). */
 function manquesNdd(){
   if(!besoinNdd()) return [];
   var N=ndd(), m=[];
-  if(N.cran.manque.length) m.push("Note de dimensionnement — isolation à décrire : "+N.cran.manque.join(", "));
-  if(N.surface===null) m.push("Note de dimensionnement — surface chauffée par la PAC introuvable");
-  if(N.hsp===null) m.push("Note de dimensionnement — hauteur sous plafond manquante");
-  if(!txt(V.aides.civilite)) m.push("Note de dimensionnement — civilité du bénéficiaire");
-  if(N.p!==null && N.pac===null) m.push("Note de dimensionnement — puissance de la PAC à reporter depuis la fiche produit");
+  if(N.cran.manque.length) m.push("Note de dimensionnement — isolation à décrire dans Maison (ou « Inconnu ») : "+N.cran.manque.join(", "));
   if(N.classe==="mal") m.push("Note de dimensionnement — "+N.verdict);
   return m;
 }

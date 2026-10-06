@@ -392,6 +392,31 @@ avec `rep()`, le payload et le résumé), la préférence du client et « ce qui
   puis focus sur un autre champ ou une puce **sans Entrée**. Il échoue sur la 4.4 (6 cas) et passe
   sur la 4.5. Ne plus tester une sortie de champ avec `dispatchEvent(new Event("change"))`.
 
+## v4.6 — « sur place » et « au bureau » (06/10/2026, retour de la fiche STEPHAN)
+
+- Reproche de Rémi : la note de dimensionnement lui réclamait sur le chantier des choses qu'il n'a
+  pas (puissance de la PAC, référence, civilité, parcelle) ou qui doivent se remplir seules ; « certaines
+  réponses devraient arriver pendant qu'on fait l'étude, pas pendant les prises de cotes ».
+- Règle posée : **sur place, la note n'a besoin que de la description de l'isolation** (onglet Maison).
+  Tout le reste se calcule (surface chauffée, hauteur, volume, besoin) ou se décide au bureau.
+- `manquesNdd()` ne remonte plus que l'isolation manquante (et un verdict « refusé », qui ne peut
+  apparaître qu'une fois la machine saisie au bureau). Surface et hauteur ont déjà leurs alertes
+  (émetteurs, hauteurs à relever) ; la civilité se déduit du nom Axonaut (`civiliteAuto()` : « Mme
+  Bordonne Manon » → Mme ; `civilite_deduite:true` dans le payload) ; la puissance de la PAC n'est
+  plus demandée. Le badge « ! » de l'onglet ne suit plus que l'isolation.
+- « Inconnu » est accepté sur les quatre critères (`G_*` à 0 = hors grille, donc pas de manque) : si
+  Rémi ne peut pas voir le plancher bas, il le dit, et le cran se fixe au bureau d'après l'année.
+- Onglet Note dim. : en haut ce qui se constate ou se calcule ; en bas un bloc replié « 🏢 Au bureau —
+  rempli pendant l'étude » avec la parcelle, le cran forcé, les forçages surface/hauteur et la machine
+  (T d'arrêt, puissance, référence, verdict).
+- Lots : une question peut porter `bureau:true`. Sur le lot PAC, « Régime visé » et « Ballon tampon ».
+  Elles sont rendues dans un bloc replié « 🏢 Au bureau — à trancher pendant l'étude » et ne comptent
+  plus dans les « questions sans réponse » de l'envoi ; le payload ne change pas.
+- Fiche préparée d'avance (`appareil` « préparée par Claude depuis le plan ») : la tablette lui met la
+  date du jour à la reprise — la fiche STEPHAN est partie datée du 29/09 (jour de sa préparation)
+  alors que la visite était le 06/10, et le fichier Drive avec.
+- Test : `t46.mjs` (18 cas) + `t45.mjs` rejoué.
+
 ## Le croquis, ce qui a été appris à l'usage
 
 Deux formats de page figés ne tombent jamais juste : le plan finit dans un coin avec du blanc
